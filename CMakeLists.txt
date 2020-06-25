@@ -1,27 +1,34 @@
-cmake_minimum_required(VERSION 3.1)
-project(CMakeDemo)
+cmake_minimum_required(VERSION 3.7.2)
 
-# Write demo-config.h
-message("Generating header file: ${CMAKE_BINARY_DIR}/demo-config.h")
-set(DEMO_ENABLE_MULTISAMPLE 0 CACHE BOOL "Enable multisample anti-aliasing")
-configure_file(demo-config.h.in "${CMAKE_BINARY_DIR}/demo-config.h")
+# Proeject name - should not contain whitespace 
+project(OpengGL_CPP)
 
-# Find SDL2 and OpenGL
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
-find_package(SDL2 REQUIRED COMPONENTS main)
-if(NOT WIN32)
-    find_package(OpenGL REQUIRED)
-endif()
+#========== Global Configurations =============#
+#----------------------------------------------#
 
-# Define executable target
-include_directories(${SDL2_INCLUDE_DIRS} ${SDL2main_INCLUDE_DIRS} ${OPENGL_INCLUDE_DIR} ${CMAKE_BINARY_DIR})
-add_executable(CMakeDemo Main.cpp gl2/Context.cpp)
-target_link_libraries(CMakeDemo ${SDL2_LIBS} ${OPENGL_LIBRARIES})
+# Set the C++ standard for all targets (It sets the flags
+# (-std=c++11, -std=c++14 ...) on Clang or GCC. and /std=c++17 on MSVC
+# OPTIONAL:
+#---------------------------------
+set(CMAKE_CXX_STANDARD 17)     
+set(CMAKE_VERBOSE_MAKEFILE ON)
+find_package(GLEW REQUIRED)
+find_package(GLUT REQUIRED)
+include_directories(${GLEW_INCLUDE_DIR})
 
-# Copy SDL2 DLLs to output folder on Windows
-if(WIN32)
-    foreach(DLL ${SDL2_DLLS})
-        add_custom_command(TARGET CMakeDemo POST_BUILD COMMAND
-            ${CMAKE_COMMAND} -E copy_if_different ${DLL} $<TARGET_FILE_DIR:CMakeDemo>)
-    endforeach()
-endif()
+include_directories(${GLUT_INCLUDE_DIR})
+find_package(OpenGL REQUIRED)
+include_directories(${OpenGL_INCLUDE_DIRS})
+link_directories(${OpenGL_LIBRARY_DIRS})
+add_definitions(${OpenGL_DEFINITIONS})
+#========== Targets Configurations ============#
+
+# Build an executable (Unix-like OSes generates ./ProjectCupboardLLAPI, on
+# Windows ./ProjectCupboardLLAPI.exe)
+# ..........................................
+add_library(libProjectCupboardLLAPI SHARED ./src/mainLib.cpp ./src/GLShader.cpp ./src/GLShader.hpp)
+
+# Set executable dependency libraries
+# Equivalent to pass flags -lGL, -lGLU and -lglut 
+target_link_libraries(libProjectCupboardLLAPI ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+
