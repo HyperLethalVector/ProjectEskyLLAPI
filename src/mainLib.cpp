@@ -11,8 +11,13 @@
 #include <GL/freeglut_ext.h>
 #include <iostream>
 #include "GLShader.hpp"
-
-
+#include "IUnityInterface.h"
+#include "IUnityGraphics.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+HGLRC unityContext;
+HGLRC nativeContext;
+#define STB_IMAGE_IMPLEMENTATION
 #define BUFFER_OFFSET(i) ((void*)(i))
 float*  left_uv_to_rect_x = new float[16]{-0.7530364531010308, 0.8806592947908687, -0.8357813137161849, 0.3013989721607643, 0.9991764544369446, -0.2578159567698274, 0.3278667335649757, -0.4602577277109663, -0.23980700925448195, -0.056891370605734376, -0.1248008903440144, 0.7641381600051023, 0.20935445281014292, -0.06256983016261788, 0.25844580123833516, -0.5098143951663658};
 float*  left_uv_to_rect_y = new float[16]{ 0.5612597403791647, -1.1899589356849427, 0.4652815794139322, -0.2737933233160801, 0.3774305703820774, -0.8110333901413378, 1.2705775357104372, -0.7461290557575936, -0.19222925521894155, 0.936404121235537, -1.7109388784623627, 0.9147182510080394, 0.33073407860855586, -1.1463700238163494, 1.4965795269835196, -0.7090919632511286};
@@ -240,15 +245,17 @@ extern "C" {
     struct TVertex_VC
     {
         float	x, y, z;
-        unsigned int	color;
-        float	padding[4];
+        float   tx, ty;
     };
 
 //A quad
     GLushort	pindex_quad[6];
     TVertex_VC	pvertex_quad[4];
 
+    int TextureIDLeft = 0;
+    int TextureIDRight = 0;
     //A triangle
+    bool shouldPushUpdate = false;
     GLushort		pindex_triangle[3];
     TVertex_VNT		pvertex_triangle[3];
     //1 VAO for the quad
@@ -266,7 +273,7 @@ extern "C" {
     GLuint	ShaderProgram[2];
     GLuint	VertexShader[2];
     GLuint	FragmentShader[2];
-
+    GLuint textureLoc;
     int ProjectionModelviewMatrix_Loc[2];
     float rot = 0;
     bool isLooping = false;
@@ -274,86 +281,77 @@ extern "C" {
         glutPostRedisplay();
         glutTimerFunc(1000 / 120, timer, 0);
     }
+    GLuint LoadTexture(const char* filename)
+    {
+        GLuint texture;
+        int width, height, nrChannels;
+        unsigned char* data = stbi_load("container.jpg", &width, &height, &nrChannels, 0);
+
+        if (data != nullptr)
+        {
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            stbi_image_free(data);
+            Debug::Log("Loaded Texture successfully", Color::Green);
+
+        }
+        else {
+            Debug::Log("Failed to load texture", Color::Red);
+        }
+
+        return texture;
+    }
 #endif
+    float vertices[] = {
+        // positions          // colors           // texture coords
+         1.0f,  1.0f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f,   // top right
+         1.0f, -1.0f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f,   // bottom right
+        -1.0f, -1.0f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f,   // bottom left
+        -1.0f,  1.0f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 0.0f    // top left 
+    };
+    unsigned int indices[] = {
+        0, 1, 3, // first triangle
+        1, 2, 3  // second triangle
+    };
+    unsigned int VBO, VAO, EBO;
     void CreateGeometry()
     {
+        // load and generate the texture
+        int width, height, nrChannels;
+        textureLoc = LoadTexture("container.jpg");       
         //A quad
-        pvertex_quad[0].x = -1;
-        pvertex_quad[0].y = -1;
-        pvertex_quad[0].z = -1;
-        pvertex_quad[0].color = 0xFFFFFFFF;
-
-        pvertex_quad[1].x = 1;
-        pvertex_quad[1].y = -1;
-        pvertex_quad[1].z = -1;
-        pvertex_quad[1].color = 0xFFFF0000;
-
-        pvertex_quad[2].x = -1;
-        pvertex_quad[2].y = 1;
-        pvertex_quad[2].z = -1;
-        pvertex_quad[2].color = 0xFF00FF00;
-
-        pvertex_quad[3].x = 1;
-        pvertex_quad[3].y = 1;
-        pvertex_quad[3].z = -1;
-        pvertex_quad[3].color = 0xFF0000FF;
-
-        pindex_quad[0] = 0;
-        pindex_quad[1] = 1;
-        pindex_quad[2] = 2;
-        pindex_quad[3] = 2;
-        pindex_quad[4] = 1;
-        pindex_quad[5] = 3;
-
         //The triangle
 
         //Create the IBO for the quad
         //16 bit indices
-        glGenBuffers(1, &IBOID[0]);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID[0]);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLushort), pindex_quad, GL_STATIC_DRAW);
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+        glGenBuffers(1, &EBO);
 
-        GLenum error = glGetError();
+        glBindVertexArray(VAO);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-        error = glGetError();
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-        //Create VBO for the quad
-        glGenBuffers(1, &VBOID[0]);
-        glBindBuffer(GL_ARRAY_BUFFER, VBOID[0]);
-        glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(TVertex_VC), pvertex_quad, GL_STATIC_DRAW);
-
-        error = glGetError();
-
-        //Just testing
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        error = glGetError();
-
-        //VAO for the quad *********************
-        glGenVertexArrays(1, &VAOID[0]);
-        glBindVertexArray(VAOID[0]);
-
-        //Bind the VBO and setup pointers for the VAO
-        glBindBuffer(GL_ARRAY_BUFFER, VBOID[0]);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(TVertex_VC), BUFFER_OFFSET(0));
-        glVertexAttribPointer(3, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(TVertex_VC), BUFFER_OFFSET(sizeof(float) * 3));
+        // position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(2);
-        glEnableVertexAttribArray(3);
+        // color attribute
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+        // texture coord attribute
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
 
-        //Bind the IBO for the VAO
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBOID[0]);        
-
-        //Just testing
-        glBindVertexArray(0);
-        glDisableVertexAttribArray(0);
-        glDisableVertexAttribArray(1);
-        glDisableVertexAttribArray(2);
-        glDisableVertexAttribArray(3);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
     void ExitFunction()
     {
@@ -369,12 +367,9 @@ extern "C" {
 
         glUseProgram(0);
 
-        glDeleteBuffers(1, &IBOID[0]);
-        glDeleteBuffers(1, &IBOID[1]);
-        glDeleteBuffers(1, &VBOID[0]);
-        glDeleteBuffers(1, &IBOID[1]);
-        glDeleteVertexArrays(1, &VAOID[0]);
-        glDeleteVertexArrays(1, &VAOID[1]);
+        glDeleteVertexArrays(1, &VAO);
+        glDeleteBuffers(1, &VBO);
+        glDeleteBuffers(1, &EBO);
 
         glDetachShader(ShaderProgram[0], VertexShader[0]);
         glDetachShader(ShaderProgram[0], FragmentShader[0]);
@@ -387,9 +382,10 @@ extern "C" {
         glDeleteShader(VertexShader[1]);
         glDeleteShader(FragmentShader[1]);
         glDeleteProgram(ShaderProgram[1]);
+
     }
 
-    bool shouldShow = true;
+    bool shouldShow = false;
     DLL_EXPORT void renderFunction() {
         Debug::Log("Rendering", Color::Red);
         float projectionModelviewMatrix[16];
@@ -410,38 +406,38 @@ extern "C" {
         //Bind the VAO
         glBindVertexArray(VAOID[0]);
         //At this point, we would bind textures but we aren't using textures in this example
-
-        //Draw command
-        //The first to last vertex is 0 to 3
-        //6 indices will be used to render the 2 triangles. This make our quad.
-        //The last parameter is the start address in the IBO => zero
-        if (shouldShow) {
-            shouldShow = false;
-            glDrawRangeElements(GL_TRIANGLES, 0, 3, 6, GL_UNSIGNED_SHORT, NULL);
+        glActiveTexture(GL_TEXTURE0);
+        if (shouldShow)
+        {
+            glBindTexture(GL_TEXTURE_2D, TextureIDLeft);
         }
         else {
-            shouldShow = true;
+            glBindTexture(GL_TEXTURE_2D, textureLoc);
         }
 
-        //Bind the shader that we want to use
-//        glUseProgram(ShaderProgram[1]);
-        //Setup all uniforms for your shader
-//        glUniformMatrix4fv(ProjectionModelviewMatrix_Loc[1], 1, FALSE, projectionModelviewMatrix);
-        //Bind the VAO
-//        glBindVertexArray(VAOID[1]);
-        //At this point, we would bind textures but we aren't using textures in this example
+//        glBindTexture(GL_TEXTURE_2D, textureLoc);
 
+    //    glActiveTexture(GL_TEXTURE1);
+  //      glBindTexture(GL_TEXTURE_2D, TextureIDRight);
+        glUniform1i(glGetUniformLocation(ShaderProgram[0], "texture1"), 0);
+        glUniform1i(glGetUniformLocation(ShaderProgram[0], "texture2"), 1);
         //Draw command
-        //The first to last vertex is 0 to 3
-        //3 indices will be used to render 1 triangle.
-        //The last parameter is the start address in the IBO => zero
-//        glDrawRangeElements(GL_TRIANGLES, 0, 3, 3, GL_UNSIGNED_SHORT, NULL);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         glutSwapBuffers();
     }
     int WindowID = 0;
     std::thread* t1;
     int x, y, width, height = 0;
+    bool firstEvent = false;
+    // Plugin function to handle a specific rendering event
+    static void UNITY_INTERFACE_API OnRenderEventScreenPointPixel(int eventID)
+    {
+        unityContext = wglGetCurrentContext();
+
+    }
+
     void DoFunction() {
         char* myargv[1];
         int myargc = 1;
@@ -476,7 +472,7 @@ extern "C" {
         }
         if (LoadShader("Shader1.vert", "Shader1.frag", false, false, true, ShaderProgram[0], VertexShader[0], FragmentShader[0]) == -1)
         {
-            exit(1);
+            Debug::Log("Failed to load shader 1", Color::Red);
         }
         else
         {
@@ -484,13 +480,18 @@ extern "C" {
         }
         if (LoadShader("Shader2.vert", "Shader2.frag", true, true, false, ShaderProgram[1], VertexShader[1], FragmentShader[1]) == -1)
         {
-            exit(1);
+            Debug::Log("Failed to load shader 2", Color::Red);
         }
         else
         {
             ProjectionModelviewMatrix_Loc[1] = glGetUniformLocation(ShaderProgram[1], "ProjectionModelviewMatrix");
         }
-
+        nativeContext = wglGetCurrentContext();
+        HDC dd = wglGetCurrentDC();
+        wglMakeCurrent(NULL, NULL);
+        wglShareLists(unityContext, nativeContext);
+        wglShareLists(unityContext, nativeContext);
+        wglMakeCurrent(dd, nativeContext);
         CreateGeometry();
         glutDisplayFunc(&renderFunction);
         timer(0);
@@ -501,6 +502,11 @@ extern "C" {
         glutLeaveMainLoop();
 
     }
+    DLL_EXPORT void addLeftRightPointers(int LeftID, int RightID) {
+        TextureIDLeft = LeftID;
+        TextureIDRight = RightID;
+        shouldShow = true;
+    }
     DLL_EXPORT void initialize(int xPos, int yPos, int w, int h) {
         x = xPos;
         y = yPos;
@@ -508,6 +514,11 @@ extern "C" {
         height = h;
         isLooping = true;
         t1 = new std::thread(DoFunction);
+    }
+    extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API
+        GetRenderEventScreenPointPixelFunc()
+    {
+        return OnRenderEventScreenPointPixel;
     }
     typedef void(*FuncCallBack)(const char* message, int color, int size);
     static FuncCallBack callbackInstance = nullptr;
