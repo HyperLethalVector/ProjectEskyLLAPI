@@ -15,7 +15,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 find_package(GLEW REQUIRED)
 find_package(GLUT REQUIRED)
 include_directories(${GLEW_INCLUDE_DIR})
-
+include_directories(./include)
 include_directories(${GLUT_INCLUDE_DIR})
 find_package(OpenGL REQUIRED)
 include_directories(${OpenGL_INCLUDE_DIRS})
@@ -26,7 +26,7 @@ add_definitions(${OpenGL_DEFINITIONS})
 # Build an executable (Unix-like OSes generates ./ProjectCupboardLLAPI, on
 # Windows ./ProjectCupboardLLAPI.exe)
 # ..........................................
-add_library(libProjectCupboardLLAPI SHARED ./src/mainLib.cpp ./src/GLShader.cpp ./src/GLShader.hpp)
+add_library(libProjectCupboardLLAPI SHARED ./src/mainLib.cpp ./src/OpenGLControl.cpp ./src/RenderScene.cpp ./src/Shaders.cpp ./src/Win_OpenGLApp.cpp)
 
 # Set executable dependency libraries
 # Equivalent to pass flags -lGL, -lGLU and -lglut 

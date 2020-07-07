@@ -11,11 +11,13 @@
 #include <GL/freeglut_ext.h>
 #include <GL/wglew.h>
 #include <iostream>
-#include "GLShader.hpp"
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "win_OpenGLApp.h"
+
+
 HGLRC unityContext;
 HGLRC nativeContext;
 #define STB_IMAGE_IMPLEMENTATION
@@ -588,7 +590,20 @@ extern "C" {
         doExit = false;
         doExit2 = false;
         Debug::Log("Creating Window");
-        hWnd = CreateOpenGLWindow("minimal", x, y, width, height, PFD_TYPE_RGBA,0,false);
+        if(!appMain.InitializeApp("03_opengl_3_3")) {
+            Debug::Log("Unable to init");
+        }
+        else {
+            appMain.RegisterAppClass(NULL);
+
+            if (!appMain.CreateAppWindow("03.) Shaders Are Coming - Tutorial by Michal Bubnar (www.mbsoftworks.sk)")) {
+                Debug::Log("Couldn't create the window");
+            }
+            appMain.ResetTimer();
+            appMain.AppBody();
+            appMain.Shutdown();
+        }
+/*        hWnd = CreateOpenGLWindow("minimal", x, y, width, height, PFD_TYPE_RGBA,0,false);
         if (hWnd == NULL)
             exit(1);
         hDC = GetDC(hWnd);
@@ -619,7 +634,7 @@ extern "C" {
         wglMakeCurrent(NULL, NULL);
         ReleaseDC(hWnd,hDC);
         wglDeleteContext(hRC);
-        DestroyWindow(hWnd);
+        DestroyWindow(hWnd);*/
     }
     void DoFunction() {
         char* myargv[1];
