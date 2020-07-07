@@ -9,6 +9,7 @@
 #include <thread>
 #include <GL/freeglut.h>
 #include <GL/freeglut_ext.h>
+#include <GL/wglew.h>
 #include <iostream>
 #include "GLShader.hpp"
 #include "IUnityInterface.h"
@@ -351,7 +352,6 @@ extern "C" {
         // texture coord attribute
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
         glEnableVertexAttribArray(2);
-
     }
     void ExitFunction()
     {
@@ -429,6 +429,7 @@ extern "C" {
     }
     int WindowID = 0;
     std::thread* t1;
+    std::thread* t2;
     int x, y, width, height = 0;
     bool firstEvent = false;
     // Plugin function to handle a specific rendering event
@@ -437,7 +438,189 @@ extern "C" {
         unityContext = wglGetCurrentContext();
 
     }
+    void
+        display()
+    {
+        Debug::Log("Rendering");
+        /* rotate a triangle around */
+        glClear(GL_COLOR_BUFFER_BIT);
+        glBegin(GL_TRIANGLES);
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex2i(0, 1);
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glVertex2i(-1, -1);
+        glColor3f(0.0f, 0.0f, 1.0f);
+        glVertex2i(1, -1);
+        glEnd();
+        glFlush();
+    }
 
+
+    LONG WINAPI
+        WindowProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+    {
+        static PAINTSTRUCT ps;
+
+        switch (uMsg) {
+        case WM_PAINT:
+            display();
+            BeginPaint(hWnd, &ps);
+            EndPaint(hWnd, &ps);
+            return 0;
+        case WM_CREATE:
+            Debug::Log("Creating and setting up buffers");
+
+            return 0;
+        case WM_SIZE:
+            glViewport(0, 0, LOWORD(lParam), HIWORD(lParam));
+            PostMessage(hWnd, WM_PAINT, 0, 0);
+            return 0;
+        case WM_CHAR:
+            switch (wParam) {
+            case 27:			/* ESC key */
+                PostQuitMessage(0);
+                break;
+            }
+            return 0;
+        case WM_CLOSE:
+            PostQuitMessage(0);
+            return 0;
+        }
+
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    }
+
+    HWND
+        CreateOpenGLWindow(char* title, int x, int y, int width, int height,
+            BYTE type, DWORD flags, bool isFullscreen)
+    {
+        int         pf;
+        HDC         hDC;
+        HWND        hWnd;
+        WNDCLASS    wc;
+        PIXELFORMATDESCRIPTOR pfd;
+        static HINSTANCE hInstance = 0;
+
+        /* only register the window class once - use hInstance as a flag. */
+        if (!hInstance) {
+            hInstance = GetModuleHandle(NULL);
+            wc.style = CS_OWNDC;
+            wc.lpfnWndProc = (WNDPROC)WindowProc;
+            wc.cbClsExtra = 0;
+            wc.cbWndExtra = 0;
+            wc.hInstance = hInstance;
+            wc.hIcon = LoadIcon(NULL, IDI_WINLOGO);
+            wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+            wc.hbrBackground = NULL;
+            wc.lpszMenuName = NULL;
+            wc.lpszClassName = "OpenGL";
+            if (!RegisterClass(&wc)) {
+                MessageBox(NULL, "RegisterClass() failed:  "
+                    "Cannot register window class.", "Error", MB_OK);
+                return NULL;
+            }
+        }
+
+        hWnd = CreateWindowEx(WS_EX_APPWINDOW,
+            "OpenGL",
+            "Win32 Guided Tour Application",
+            WS_POPUP,
+            x, y,
+            width, height,
+            NULL,
+            NULL,
+            hInstance,
+            NULL
+        );
+            //CreateWindow("OpenGL", title, WS_POPUP,
+           // x, y, width, height, NULL, NULL, hInstance, NULL);
+
+        if (hWnd == NULL) {
+            MessageBox(NULL, "CreateWindow() failed:  Cannot create a window.",
+                "Error", MB_OK);
+            return NULL;
+        }
+
+        hDC = GetDC(hWnd);
+        /* there is no guarantee that the contents of the stack that become
+           the pfd are zeroed, therefore _make sure_ to clear these bits. */
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.nSize = sizeof(pfd);
+        pfd.nVersion = 1;
+        pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | flags;
+        pfd.iPixelType = type;
+        pfd.cColorBits = 32;
+
+        pf = ChoosePixelFormat(hDC, &pfd);
+        if (pf == 0) {
+            MessageBox(NULL, "ChoosePixelFormat() failed:  "
+                "Cannot find a suitable pixel format.", "Error", MB_OK);
+            return 0;
+        }
+
+        if (SetPixelFormat(hDC, pf, &pfd) == FALSE) {
+            MessageBox(NULL, "SetPixelFormat() failed:  "
+                "Cannot set format specified.", "Error", MB_OK);
+            return 0;
+        }
+        DescribePixelFormat(hDC, pf, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
+
+        ReleaseDC(hWnd, hDC);
+        return hWnd;
+    }
+    HDC hDC;				/* device context */
+    HGLRC hRC;				/* opengl context */
+    HWND  hWnd;				/* window */
+    MSG   msg;				/* message */
+    bool doExit = false;
+    bool doExit2 = false;
+    bool startFunctioning = false;
+    void DoBackgroundFunction3() {
+        while (!doExit2) {
+            if (startFunctioning) {
+                PostMessage(hWnd, WM_PAINT, NULL, NULL);
+                std::this_thread::sleep_for(std::chrono::milliseconds(8));
+            }
+        }
+    }
+    void DoFunction2()
+    {
+        doExit = false;
+        doExit2 = false;
+        Debug::Log("Creating Window");
+        hWnd = CreateOpenGLWindow("minimal", x, y, width, height, PFD_TYPE_RGBA,0,false);
+        if (hWnd == NULL)
+            exit(1);
+        hDC = GetDC(hWnd);
+        Debug::Log("Creating Context");
+        hRC = wglCreateContext(hDC);        
+        wglShareLists(unityContext, hRC);
+        //Checking GL version
+        const GLubyte* GLVersionString = glGetString(GL_VERSION);
+
+        //Or better yet, use the GL3 way to get the version number
+        int OpenGLVersion[2];
+        glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
+        glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
+        Debug::Log("OpenGL Major Minor version", Color::Orange);
+        Debug::Log(OpenGLVersion[0], Color::Black);
+        Debug::Log(OpenGLVersion[1], Color::Black);
+        wglMakeCurrent(hDC, hRC);
+        Debug::Log("Showing Window Context");
+        ShowWindow(hWnd, 1);
+        t2 = new std::thread(DoBackgroundFunction3);
+        while (GetMessage(&msg, hWnd, 0, 0) && !doExit) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+            startFunctioning = true;
+        }
+        startFunctioning = false;
+        Debug::Log("Finishing, Closing");
+        wglMakeCurrent(NULL, NULL);
+        ReleaseDC(hWnd,hDC);
+        wglDeleteContext(hRC);
+        DestroyWindow(hWnd);
+    }
     void DoFunction() {
         char* myargv[1];
         int myargc = 1;
@@ -499,13 +682,15 @@ extern "C" {
         ExitFunction();
     }
     DLL_EXPORT void stop() {
-        glutLeaveMainLoop();
+        doExit2 = true;
+        doExit = true;
 
     }
     DLL_EXPORT void addLeftRightPointers(int LeftID, int RightID) {
         TextureIDLeft = LeftID;
         TextureIDRight = RightID;
         shouldShow = true;
+        Debug::Log("Adding the left and right pointers");
     }
     DLL_EXPORT void initialize(int xPos, int yPos, int w, int h) {
         x = xPos;
@@ -513,7 +698,7 @@ extern "C" {
         width = w;
         height = h;
         isLooping = true;
-        t1 = new std::thread(DoFunction);
+        t1 = new std::thread(DoFunction2);
     }
     extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API
         GetRenderEventScreenPointPixelFunc()
