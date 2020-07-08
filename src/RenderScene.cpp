@@ -30,23 +30,13 @@ void InitScene(LPVOID lpParam)
 {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-	// Setup triangle vertices
-	fTriangle[0] = -0.4f; fTriangle[1] = 0.1f; fTriangle[2] = 0.0f;
-	fTriangle[3] = 0.4f; fTriangle[4] = 0.1f; fTriangle[5] = 0.0f;
-	fTriangle[6] = 0.0f; fTriangle[7] = 0.7f; fTriangle[8] = 0.0f;
-
-	// Setup triangle color
-
-	fTriangleColor[0] = 1.0f; fTriangleColor[1] = 0.0f; fTriangleColor[2] = 0.0f;
-	fTriangleColor[3] = 0.0f; fTriangleColor[4] = 1.0f; fTriangleColor[5] = 0.0f;
-	fTriangleColor[6] = 0.0f; fTriangleColor[7] = 0.0f; fTriangleColor[8] = 1.0f;
  
 	// Setup quad vertices
  
-	fQuad[0] = -0.2f; fQuad[1] = -0.1f; fQuad[2] = 0.0f;
-	fQuad[3] = -0.2f; fQuad[4] = -0.6f; fQuad[5] = 0.0f;
-	fQuad[6] = 0.2f; fQuad[7] = -0.1f; fQuad[8] = 0.0f;
-	fQuad[9] = 0.2f; fQuad[10] = -0.6f; fQuad[11] = 0.0f;
+	fQuad[0] = -1.0f; fQuad[1] = 1.0f; fQuad[2] = 0.0f;
+	fQuad[3] = -1.0f; fQuad[4] = -1.0f; fQuad[5] = 0.0f;
+	fQuad[6] = 1.0f; fQuad[7] = 1.0f; fQuad[8] = 0.0f;
+	fQuad[9] = 1.0f; fQuad[10] = -1.0f; fQuad[11] = 0.0f;
 
 	// Setup quad color
 
@@ -57,19 +47,6 @@ void InitScene(LPVOID lpParam)
 
 	glGenVertexArrays(2, uiVAO); // Generate two VAOs, one for triangle and one for quad
 	glGenBuffers(4, uiVBO); // And four VBOs
-
-	// Setup whole triangle
-	glBindVertexArray(uiVAO[0]);
-
-	glBindBuffer(GL_ARRAY_BUFFER, uiVBO[0]);
-	glBufferData(GL_ARRAY_BUFFER, 9*sizeof(float), fTriangle, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, uiVBO[1]);
-	glBufferData(GL_ARRAY_BUFFER, 9*sizeof(float), fTriangleColor, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
 	// Setup whole quad
 	glBindVertexArray(uiVAO[1]);
@@ -86,8 +63,8 @@ void InitScene(LPVOID lpParam)
 
 	// Load shaders and create shader program
 
-	shVertex.LoadShader("data\\shaders\\shader.vert", GL_VERTEX_SHADER);
-	shFragment.LoadShader("data\\shaders\\shader.frag", GL_FRAGMENT_SHADER);
+	shVertex.LoadShader("shader.vert", GL_VERTEX_SHADER);
+	shFragment.LoadShader("shader.frag", GL_FRAGMENT_SHADER);
 
 	spMain.CreateProgram();
 	spMain.AddShaderToProgram(&shVertex);

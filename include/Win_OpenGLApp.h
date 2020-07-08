@@ -15,7 +15,7 @@ public:
 	bool InitializeApp(string a_sAppName);
 	void RegisterAppClass(HINSTANCE hAppInstance);
 	bool CreateAppWindow(string sTitle);
-	
+	int x, y, width, height = 0;
 	void AppBody();
 	void Shutdown();
 

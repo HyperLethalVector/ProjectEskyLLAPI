@@ -68,11 +68,12 @@ bool COpenGLWinApp::InitializeApp(string a_sAppName)
 {
 	sAppName = a_sAppName;
 	hMutex = CreateMutex(NULL, 1, sAppName.c_str());
-	if(GetLastError() == ERROR_ALREADY_EXISTS)
-	{
-		MessageBox(NULL, "This application already runs!", "Multiple Instances Found.", MB_ICONINFORMATION | MB_OK);
-		return 0;
-	}
+//	if(GetLastError() == ERROR_ALREADY_EXISTS)
+//	{
+//		Debug::Log("The application already is running!");
+//		MessageBox(NULL, "This application already runs!", "Multiple Instances Found.", MB_ICONINFORMATION | MB_OK);
+//		return 0;
+//	}
 	doRunLoop = true;
 	return 1;
 }
@@ -126,11 +127,14 @@ Result:	Creates main application window.
 
 bool COpenGLWinApp::CreateAppWindow(string sTitle)
 {
-	hWnd = CreateWindowEx(0, sAppName.c_str(), sTitle.c_str(), WS_OVERLAPPEDWINDOW | WS_MAXIMIZE | WS_CLIPCHILDREN,
+	Debug::Log("Creating Application window!!");
+	hWnd = CreateWindowEx(0, sAppName.c_str(), sTitle.c_str(), WS_POPUP,
 		0, 0, CW_USEDEFAULT, CW_USEDEFAULT, NULL,
 		NULL, hInstance, NULL);
-
-	if(!oglControl.InitOpenGL(hInstance, &hWnd, 3, 1, InitScene, RenderScene, NULL, &oglControl))return false;
+	if (!oglControl.InitOpenGL(hInstance, &hWnd, 3, 1, InitScene, RenderScene, NULL, &oglControl)) {
+		Debug::Log("Couldn't initialize opengl!");
+		return false;
+	}
 
 	ShowWindow(hWnd, SW_SHOW);
 
@@ -156,6 +160,7 @@ void COpenGLWinApp::AppBody()
 	MSG msg;
 	while(doRunLoop)
 	{
+		Debug::Log("Rendering!");
 		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			if(msg.message == WM_QUIT)break; // If the message was WM_QUIT then exit application
@@ -165,15 +170,13 @@ void COpenGLWinApp::AppBody()
 				DispatchMessage(&msg);
 			}
 		}
-		else if(bAppActive)
-		{
-			UpdateTimer();
-			oglControl.Render(&oglControl);
-		}
-		else Sleep(200); // Do not consume processor power if application isn't active
+		UpdateTimer();
+		oglControl.Render(&oglControl);		 
+		Sleep(66); // Do not consume processor power if application isn't active
 	}
 }
 void COpenGLWinApp::StopInstance() {
+	Debug::Log("Stopping instance!");
 	doRunLoop = false;
 }
 /*-----------------------------------------------
@@ -188,6 +191,7 @@ Result:	Shuts down application and releases used
 /*---------------------------------------------*/
 void COpenGLWinApp::Shutdown()
 {
+	Debug::Log("Shutting down!");
 	oglControl.ReleaseOpenGLControl(&oglControl);
 
 	DestroyWindow(hWnd);
@@ -260,31 +264,3 @@ HINSTANCE COpenGLWinApp::GetInstance()
 {
 	return hInstance;
 }
-
-/*-----------------------------------------------
-
-Name:	WinMain
-
-Params:	whatever
-
-Result:	Windows entry point for application.
-
-/*---------------------------------------------*/
-/*
-void W(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR sCmdLine, int iShow)
-{
-	if(!appMain.InitializeApp("03_opengl_3_3"))
-		return 0;
-	appMain.RegisterAppClass(hInstance);
-
-	if(!appMain.CreateAppWindow("03.) Shaders Are Coming - Tutorial by Michal Bubnar (www.mbsoftworks.sk)"))
-		return 0;
-	appMain.ResetTimer();
-
-	appMain.AppBody();
-	appMain.Shutdown();
-
-	return 0;
-}
-
-*/

@@ -95,7 +95,10 @@ Result:	Initializes OpenGL rendering context
 
 bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVersion, int iMinorVersion, void (*a_InitScene)(LPVOID), void (*a_RenderScene)(LPVOID), void(*a_ReleaseScene)(LPVOID), LPVOID lpParam)
 {
-	if(!InitGLEW(hInstance))return false;
+	if (!InitGLEW(hInstance)) {
+		Debug::Log("Couldn't initialize GLEW", Color::Red);
+		return false;
+	}
 
 	hWnd = a_hWnd;
 	hDC = GetDC(*hWnd);
@@ -105,6 +108,7 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 
 	if(iMajorVersion <= 2)
 	{
+		Debug::Log("Major version < 2", Color::Red);
 		memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
 		pfd.nSize		= sizeof(PIXELFORMATDESCRIPTOR);
 		pfd.nVersion   = 1;
@@ -126,6 +130,7 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 	}
 	else if(WGLEW_ARB_create_context && WGLEW_ARB_pixel_format)
 	{
+		Debug::Log("Major version > 2", Color::Red);
 		const int iPixelFormatAttribList[] =
 		{
 			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
@@ -163,9 +168,9 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 	{
 		// Generate error messages
 		char sErrorMessage[255], sErrorTitle[255];
+
 		sprintf(sErrorMessage, "OpenGL %d.%d is not supported! Please download latest GPU drivers!", iMajorVersion, iMinorVersion);
-		sprintf(sErrorTitle, "OpenGL %d.%d Not Supported", iMajorVersion, iMinorVersion);
-		MessageBox(*hWnd, sErrorMessage, sErrorTitle, MB_ICONINFORMATION);
+		Debug::Log(sErrorMessage, Color::Red);
 		return false;
 	}
 
@@ -318,7 +323,10 @@ Result:	Calls previously set render function.
 
 void COpenGLControl::Render(LPVOID lpParam)
 {
-	if(RenderScene)RenderScene(lpParam);
+	if (RenderScene) { 
+		RenderScene(lpParam);
+		Debug::Log("Rendered Scene: ", Color::Green);
+	}
 }
 
 /*-----------------------------------------------
@@ -334,6 +342,7 @@ Result:	Calls previously set release function
 
 void COpenGLControl::ReleaseOpenGLControl(LPVOID lpParam)
 {
+	Debug::Log("Releasing scene");
 	if(ReleaseScene)ReleaseScene(lpParam);
 
 	wglMakeCurrent(NULL, NULL);
