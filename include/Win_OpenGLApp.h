@@ -16,6 +16,7 @@ public:
 	void RegisterAppClass(HINSTANCE hAppInstance);
 	bool CreateAppWindow(string sTitle);
 	int x, y, width, height = 0;
+	int LeftTexture, RightTexture = 0;
 	void AppBody();
 	void Shutdown();
 

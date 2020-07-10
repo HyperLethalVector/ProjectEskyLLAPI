@@ -19,8 +19,6 @@
 #include "win_OpenGLApp.h"
 
 
-HGLRC unityContext;
-HGLRC nativeContext;
 #define STB_IMAGE_IMPLEMENTATION
 float*  left_uv_to_rect_x = new float[16]{-0.7530364531010308, 0.8806592947908687, -0.8357813137161849, 0.3013989721607643, 0.9991764544369446, -0.2578159567698274, 0.3278667335649757, -0.4602577277109663, -0.23980700925448195, -0.056891370605734376, -0.1248008903440144, 0.7641381600051023, 0.20935445281014292, -0.06256983016261788, 0.25844580123833516, -0.5098143951663658};
 float*  left_uv_to_rect_y = new float[16]{ 0.5612597403791647, -1.1899589356849427, 0.4652815794139322, -0.2737933233160801, 0.3774305703820774, -0.8110333901413378, 1.2705775357104372, -0.7461290557575936, -0.19222925521894155, 0.936404121235537, -1.7109388784623627, 0.9147182510080394, 0.33073407860855586, -1.1463700238163494, 1.4965795269835196, -0.7090919632511286};
@@ -40,8 +38,6 @@ float* right_uv_to_rect_y = new float[16]{ 1.0129568069314265, -2.11097654211819
 extern "C" {
 
 
-    int TextureIDLeft = 0;
-    int TextureIDRight = 0;
     //A triangle
     bool shouldPushUpdate = false;
 
@@ -80,7 +76,7 @@ extern "C" {
     // Plugin function to handle a specific rendering event
     static void UNITY_INTERFACE_API OnRenderEventObtainUnityContext(int eventID)
     {
-        unityContext = wglGetCurrentContext();
+        appMain.oglControl.unityContext = wglGetCurrentContext();
     }
 
     bool doExit = false;
@@ -113,8 +109,11 @@ extern "C" {
         appMain.StopInstance();
     }
     DLL_EXPORT void addLeftRightPointers(int LeftID, int RightID) {
-        TextureIDLeft = LeftID;
-        TextureIDRight = RightID;
+        
+        appMain.oglControl.TextureIDLeft = LeftID;
+        appMain.oglControl.TextureIDRight = RightID;
+        appMain.LeftTexture = LeftID;
+        appMain.RightTexture = RightID;
         Debug::Log("Adding the left and right pointers");
     }
     DLL_EXPORT void initialize(int xPos, int yPos, int w, int h) {

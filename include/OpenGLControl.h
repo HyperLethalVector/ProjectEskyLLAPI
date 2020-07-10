@@ -23,10 +23,11 @@ public:
 
 	static void RegisterSimpleOpenGLClass(HINSTANCE hInstance);
 	static void UnregisterSimpleOpenGLClass(HINSTANCE hInstance);
-
+	HGLRC unityContext;
+	int TextureIDLeft = 0;
+	int TextureIDRight = 0;
 	void MakeCurrent();
 	void SwapBuffersM();
-
 private:
 	bool InitGLEW(HINSTANCE hInstance);
 

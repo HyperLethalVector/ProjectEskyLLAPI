@@ -1,5 +1,5 @@
 // Header files of frequent usage
-
+#pragma once
 #include <windows.h>
 
 #include <algorithm>
@@ -22,11 +22,15 @@ using namespace std;
 #define RFOR(q,n) for(int q=n;q>=0;q--)
 #define RSFOR(q,s,e) for(int q=s;q>=e;q--)
 
+
 #define ESZ(elem) (int)elem.size()
 enum class Color { Red, Green, Blue, Black, White, Yellow, Orange };
-
+#ifndef common_header
+#define common_header
+#endif
 class  Debug
 {
+
 public:
     static void Log(const char* message, Color color = Color::Black);
     static void Log(const std::string message, Color color = Color::Black);

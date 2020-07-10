@@ -157,10 +157,14 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 		if(!SetPixelFormat(hDC, iPixelFormat, &pfd))return false;
 
 		hRC = wglCreateContextAttribsARB(hDC, 0, iContextAttribs);
+
 		// If everything went OK
 		if(hRC) wglMakeCurrent(hDC, hRC);
 		else bError = true;
-
+		wglMakeCurrent(NULL, NULL);
+		wglShareLists(unityContext, hRC);
+		if (hRC) wglMakeCurrent(hDC, hRC);
+		else bError = true;
 	}
 	else bError = true;
 	

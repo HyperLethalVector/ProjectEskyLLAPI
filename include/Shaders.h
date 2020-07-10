@@ -49,8 +49,8 @@ public:
 	UINT GetProgramID();
 
 	CShaderProgram();
-
-private:
 	UINT uiProgram; // ID of program
+private:
+
 	bool bLinked; // Whether program was linked and is ready to use
 };

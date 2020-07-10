@@ -135,7 +135,7 @@ bool COpenGLWinApp::CreateAppWindow(string sTitle)
 		Debug::Log("Couldn't initialize opengl!");
 		return false;
 	}
-
+	
 	ShowWindow(hWnd, SW_SHOW);
 
 	// Just to send WM_SIZE message again
