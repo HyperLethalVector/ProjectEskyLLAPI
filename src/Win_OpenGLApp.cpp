@@ -127,12 +127,10 @@ Result:	Creates main application window.
 
 bool COpenGLWinApp::CreateAppWindow(string sTitle)
 {
-	Debug::Log("Creating Application window!!");
 	hWnd = CreateWindowEx(0, sAppName.c_str(), sTitle.c_str(), WS_POPUP,
-		0, 0, CW_USEDEFAULT, CW_USEDEFAULT, NULL,
+		x, y, width, height, NULL,
 		NULL, hInstance, NULL);
 	if (!oglControl.InitOpenGL(hInstance, &hWnd, 3, 1, InitScene, RenderScene, NULL, &oglControl)) {
-		Debug::Log("Couldn't initialize opengl!");
 		return false;
 	}
 	
@@ -160,7 +158,6 @@ void COpenGLWinApp::AppBody()
 	MSG msg;
 	while(doRunLoop)
 	{
-		Debug::Log("Rendering!");
 		if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
 			if(msg.message == WM_QUIT)break; // If the message was WM_QUIT then exit application
@@ -172,11 +169,10 @@ void COpenGLWinApp::AppBody()
 		}
 		UpdateTimer();
 		oglControl.Render(&oglControl);		 
-		Sleep(66); // Do not consume processor power if application isn't active
+		Sleep(8.33); // Do not consume processor power if application isn't active
 	}
 }
 void COpenGLWinApp::StopInstance() {
-	Debug::Log("Stopping instance!");
 	doRunLoop = false;
 }
 /*-----------------------------------------------
@@ -191,9 +187,7 @@ Result:	Shuts down application and releases used
 /*---------------------------------------------*/
 void COpenGLWinApp::Shutdown()
 {
-	Debug::Log("Shutting down!");
 	oglControl.ReleaseOpenGLControl(&oglControl);
-
 	DestroyWindow(hWnd);
 	UnregisterClass(sAppName.c_str(), hInstance);
 	COpenGLControl::UnregisterSimpleOpenGLClass(hInstance);

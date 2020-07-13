@@ -26,6 +26,14 @@ CShader shVertex, shFragment;
 CShaderProgram spMain;
 GLint baseImageLocLeft;
 GLint baseImageLocRight;
+GLint baseCameraMatrixLeft;
+GLint baseCameraMatrixRight;
+
+
+GLint gl_left_uv_to_rect_x;
+GLint gl_left_uv_to_rect_y;
+GLint gl_right_uv_to_rect_x;
+GLint gl_right_uv_to_rect_y;
 int TextureLoc;
 void InitScene(LPVOID lpParam)
 {
@@ -65,16 +73,25 @@ void InitScene(LPVOID lpParam)
 	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), fQuadTextureCoords, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
 	// Load shaders and create shader program
 	shVertex.LoadShader("shader.vert", GL_VERTEX_SHADER);
 	shFragment.LoadShader("shader.frag", GL_FRAGMENT_SHADER);
 	spMain.CreateProgram();
 	spMain.AddShaderToProgram(&shVertex);
 	spMain.AddShaderToProgram(&shFragment);
-	baseImageLocLeft = glGetUniformLocation(spMain.uiProgram, "gSamplerLeft");
-	baseImageLocRight = glGetUniformLocation(spMain.uiProgram, "gSamplerRight");
+
 	spMain.LinkProgram();
 	spMain.UseProgram();
+	baseImageLocLeft = glGetUniformLocation(spMain.uiProgram, "gSamplerLeft");
+	baseImageLocRight = glGetUniformLocation(spMain.uiProgram, "gSamplerRight");
+	baseCameraMatrixLeft = glGetUniformLocation(spMain.uiProgram, "CameraMatrixLeft");
+	baseCameraMatrixRight = glGetUniformLocation(spMain.uiProgram, "CameraMatrixRight");
+
+	gl_left_uv_to_rect_x = glGetUniformLocation(spMain.uiProgram, "leftUvToRectX");
+	gl_left_uv_to_rect_y = glGetUniformLocation(spMain.uiProgram, "leftUvToRectY");
+	gl_right_uv_to_rect_x = glGetUniformLocation(spMain.uiProgram, "rightUvToRectX");
+	gl_right_uv_to_rect_y = glGetUniformLocation(spMain.uiProgram, "rightUvToRectY");
 }
 
 /*-----------------------------------------------
@@ -86,24 +103,30 @@ Params:	lpParam - Pointer to anything you want.
 Result:	Renders whole scene.
 
 /*---------------------------------------------*/
-
+bool firstFrame = false;
 void RenderScene(LPVOID lpParam)
 {
-	// Typecast lpParam to COpenGLControl pointer
 	COpenGLControl* oglControl = (COpenGLControl*)lpParam;
-	// We just clear color
 	glClear(GL_COLOR_BUFFER_BIT);
+	if (oglControl->useCameraMatricies) {
+		Debug::Log("Set camera matricies");
+		Debug::Log(oglControl->CameraMatrixLeft[0]);
+		glUniform1fv(gl_left_uv_to_rect_x, 16, oglControl->left_uv_to_rect_x);
+		glUniform1fv(gl_left_uv_to_rect_y, 16, oglControl->left_uv_to_rect_y);
+		glUniform1fv(gl_right_uv_to_rect_x, 16, oglControl->right_uv_to_rect_x);
+		glUniform1fv(gl_right_uv_to_rect_y, 16, oglControl->right_uv_to_rect_y);
 
-	//glBindVertexArray(uiVAO[0]);
-//	glDrawArrays(GL_TRIANGLES, 0, 3);
+
+		glUniform1fv(baseCameraMatrixLeft, 16, oglControl->CameraMatrixLeft);
+		glUniform1fv(baseCameraMatrixRight, 16, oglControl->CameraMatrixRight);
+		oglControl->useCameraMatricies = false;
+	}
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, oglControl->TextureIDLeft);
 	glBindSampler(0, baseImageLocLeft);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, oglControl->TextureIDRight);
 	glBindSampler(1, baseImageLocRight);
-
-//	glBindTexture(GL_TEXTURE_2D, oglControl->TextureID);
 	glBindVertexArray(uiVAO[1]);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 

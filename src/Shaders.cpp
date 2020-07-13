@@ -21,18 +21,18 @@ Result:	Loads and compiles shader.
 bool CShader::LoadShader(string sFile, int a_iType)
 {
 	FILE* fp = fopen(sFile.c_str(), "rt");
-	if(!fp)return false;
+	if (!fp)return false;
 
 	// Get all lines from a file
 
 	vector<string> sLines;
 	char sLine[255];
-	while(fgets(sLine, 255, fp))sLines.push_back(sLine);
+	while (fgets(sLine, 255, fp))sLines.push_back(sLine);
 	fclose(fp);
 
-	const char** sProgram = new const char*[ESZ(sLines)];
+	const char** sProgram = new const char* [ESZ(sLines)];
 	FOR(i, ESZ(sLines))sProgram[i] = sLines[i].c_str();
-	
+
 	uiShader = glCreateShader(a_iType);
 
 	glShaderSource(uiShader, ESZ(sLines), sProgram, NULL);
@@ -43,7 +43,16 @@ bool CShader::LoadShader(string sFile, int a_iType)
 	int iCompilationStatus;
 	glGetShaderiv(uiShader, GL_COMPILE_STATUS, &iCompilationStatus);
 
-	if(iCompilationStatus == GL_FALSE)return false;
+	if (iCompilationStatus == GL_FALSE) { 
+
+		GLint maxLength = 0;
+		glGetShaderiv(uiShader, GL_INFO_LOG_LENGTH, &maxLength);
+		std::vector<char> errorLog(maxLength);
+		glGetShaderInfoLog(uiShader, maxLength, &maxLength, &errorLog[0]);
+		std::string s(errorLog.begin(), errorLog.end());
+		Debug::Log(s, Color::Red);
+		return false;
+	}
 	iType = a_iType;
 	bLoaded = true;
 

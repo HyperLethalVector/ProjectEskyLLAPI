@@ -108,7 +108,6 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 
 	if(iMajorVersion <= 2)
 	{
-		Debug::Log("Major version < 2", Color::Red);
 		memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
 		pfd.nSize		= sizeof(PIXELFORMATDESCRIPTOR);
 		pfd.nVersion   = 1;
@@ -130,7 +129,6 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 	}
 	else if(WGLEW_ARB_create_context && WGLEW_ARB_pixel_format)
 	{
-		Debug::Log("Major version > 2", Color::Red);
 		const int iPixelFormatAttribList[] =
 		{
 			WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
@@ -329,7 +327,6 @@ void COpenGLControl::Render(LPVOID lpParam)
 {
 	if (RenderScene) { 
 		RenderScene(lpParam);
-		Debug::Log("Rendered Scene: ", Color::Green);
 	}
 }
 
@@ -346,7 +343,6 @@ Result:	Calls previously set release function
 
 void COpenGLControl::ReleaseOpenGLControl(LPVOID lpParam)
 {
-	Debug::Log("Releasing scene");
 	if(ReleaseScene)ReleaseScene(lpParam);
 
 	wglMakeCurrent(NULL, NULL);
