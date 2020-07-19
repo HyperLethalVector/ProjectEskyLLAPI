@@ -106,6 +106,11 @@ extern "C" {
         doExit = true;
         appMain.StopInstance();
     }
+    DLL_EXPORT void setScreenSpaceOffset(float* leftOffset, float* rightOffset) {
+        appMain.oglControl.left_offset_x_y = leftOffset;
+        appMain.oglControl.right_offset_x_y = rightOffset;
+        appMain.oglControl.updateOffset_x_y = true;
+    }
     DLL_EXPORT void setLeftRightCameraMatricies(float* leftCameraMatrix, float* rightCameraMatrix) {
         appMain.oglControl.CameraMatrixLeft = leftCameraMatrix;
         appMain.oglControl.CameraMatrixRight = rightCameraMatrix;

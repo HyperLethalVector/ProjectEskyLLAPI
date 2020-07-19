@@ -31,4 +31,7 @@ add_library(libProjectCupboardLLAPI SHARED ./src/mainLib.cpp ./src/OpenGLControl
 # Set executable dependency libraries
 # Equivalent to pass flags -lGL, -lGLU and -lglut 
 target_link_libraries(libProjectCupboardLLAPI ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
-
+set_target_properties(libProjectCupboardLLAPI PROPERTIES
+                      RUNTIME_OUTPUT_DIRECTORY_DEBUG E:/UnityProjects/NorthStarUnityIntegration/Assets/Plugins/x64
+                      RUNTIME_OUTPUT_DIRECTORY_RELEASE E:/UnityProjects/NorthStarUnityIntegration/Assets/Plugins/x64/
+)

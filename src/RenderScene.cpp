@@ -29,6 +29,8 @@ GLint baseImageLocRight;
 GLint baseCameraMatrixLeft;
 GLint baseCameraMatrixRight;
 
+GLint imageOffsetLeft;
+GLint imageOffsetRight;
 
 GLint gl_left_uv_to_rect_x;
 GLint gl_left_uv_to_rect_y;
@@ -46,11 +48,18 @@ void InitScene(LPVOID lpParam)
 	fQuad[3] = -1.0f; fQuad[4] = -1.0f; fQuad[5] = 0.0f;
 	fQuad[6] = 1.0f; fQuad[7] = 1.0f; fQuad[8] = 0.0f;
 	fQuad[9] = 1.0f; fQuad[10] = -1.0f; fQuad[11] = 0.0f;
+	/*
+		fQuadTextureCoords[0] = 0.25f; fQuadTextureCoords[1] = 0.75f; fQuadTextureCoords[2] = 0.0f;
+	fQuadTextureCoords[3] = 0.25f; fQuadTextureCoords[4] = 0.25f; fQuadTextureCoords[5] = 0.0f;
+	fQuadTextureCoords[6] = 0.75f; fQuadTextureCoords[7] = 0.75f; fQuadTextureCoords[8] = 0.0f;
+	fQuadTextureCoords[9] = 0.75f; fQuadTextureCoords[10] = 0.25f; fQuadTextureCoords[11] = 0.0f;
 
+	*/
 	fQuadTextureCoords[0] = 0.0f; fQuadTextureCoords[1] = 1.0f; fQuadTextureCoords[2] = 0.0f;
 	fQuadTextureCoords[3] = 0.0f; fQuadTextureCoords[4] = 0.0f; fQuadTextureCoords[5] = 0.0f;
 	fQuadTextureCoords[6] = 1.0f; fQuadTextureCoords[7] = 1.0f; fQuadTextureCoords[8] = 0.0f;
 	fQuadTextureCoords[9] = 1.0f; fQuadTextureCoords[10] = 0.0f; fQuadTextureCoords[11] = 0.0f;
+
 
 	// Setup quad color
 	fQuadColor[0] = 1.0f; fQuadColor[1] = 0.0f; fQuadColor[2] = 0.0f;
@@ -88,6 +97,10 @@ void InitScene(LPVOID lpParam)
 	baseCameraMatrixLeft = glGetUniformLocation(spMain.uiProgram, "CameraMatrixLeft");
 	baseCameraMatrixRight = glGetUniformLocation(spMain.uiProgram, "CameraMatrixRight");
 
+	imageOffsetLeft = glGetUniformLocation(spMain.uiProgram, "leftOffset");
+	imageOffsetRight = glGetUniformLocation(spMain.uiProgram, "rightOffset");
+
+
 	gl_left_uv_to_rect_x = glGetUniformLocation(spMain.uiProgram, "leftUvToRectX");
 	gl_left_uv_to_rect_y = glGetUniformLocation(spMain.uiProgram, "leftUvToRectY");
 	gl_right_uv_to_rect_x = glGetUniformLocation(spMain.uiProgram, "rightUvToRectX");
@@ -121,11 +134,18 @@ void RenderScene(LPVOID lpParam)
 		glUniform1fv(baseCameraMatrixRight, 16, oglControl->CameraMatrixRight);
 		oglControl->useCameraMatricies = false;
 	}
+	if (oglControl->updateOffset_x_y) {
+		oglControl->updateOffset_x_y = false;
+		glUniform1fv(imageOffsetLeft, 2, oglControl->left_offset_x_y);
+		glUniform1fv(imageOffsetRight, 2, oglControl->right_offset_x_y);
+	}
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, oglControl->TextureIDLeft);
-	glBindSampler(0, baseImageLocLeft);
-	glActiveTexture(GL_TEXTURE1);
+	glUniform1i(baseImageLocLeft, 0);
+	glBindSampler(0, baseImageLocLeft);	
+	glActiveTexture(GL_TEXTURE0 + 1);
 	glBindTexture(GL_TEXTURE_2D, oglControl->TextureIDRight);
+	glUniform1i(baseImageLocRight, 1);
 	glBindSampler(1, baseImageLocRight);
 	glBindVertexArray(uiVAO[1]);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
