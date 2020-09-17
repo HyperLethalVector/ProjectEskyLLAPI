@@ -32,6 +32,9 @@ GLint baseCameraMatrixRight;
 GLint imageOffsetLeft;
 GLint imageOffsetRight;
 
+GLint bordersLeftEye;
+GLint bordersRightEye;
+
 GLint gl_left_uv_to_rect_x;
 GLint gl_left_uv_to_rect_y;
 GLint gl_right_uv_to_rect_x;
@@ -94,8 +97,12 @@ void InitScene(LPVOID lpParam)
 	spMain.UseProgram();
 	baseImageLocLeft = glGetUniformLocation(spMain.uiProgram, "gSamplerLeft");
 	baseImageLocRight = glGetUniformLocation(spMain.uiProgram, "gSamplerRight");
+
 	baseCameraMatrixLeft = glGetUniformLocation(spMain.uiProgram, "CameraMatrixLeft");
 	baseCameraMatrixRight = glGetUniformLocation(spMain.uiProgram, "CameraMatrixRight");
+
+	bordersLeftEye = glGetUniformLocation(spMain.uiProgram, "eyeBordersLeft");
+	bordersRightEye = glGetUniformLocation(spMain.uiProgram, "eyeBordersRight");
 
 	imageOffsetLeft = glGetUniformLocation(spMain.uiProgram, "leftOffset");
 	imageOffsetRight = glGetUniformLocation(spMain.uiProgram, "rightOffset");
@@ -133,6 +140,12 @@ void RenderScene(LPVOID lpParam)
 		glUniform1fv(baseCameraMatrixLeft, 16, oglControl->CameraMatrixLeft);
 		glUniform1fv(baseCameraMatrixRight, 16, oglControl->CameraMatrixRight);
 		oglControl->useCameraMatricies = false;
+	}
+	if (oglControl->updateBorders) {
+		Debug::Log("Updating Borders Inside");
+		oglControl->updateBorders = false;
+		glUniform1fv(bordersLeftEye, 4, oglControl->LeftEyeBorderConstraints);
+		glUniform1fv(bordersRightEye, 4, oglControl->RightEyeBorderConstraints);
 	}
 	if (oglControl->updateOffset_x_y) {
 		oglControl->updateOffset_x_y = false;

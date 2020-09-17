@@ -29,8 +29,11 @@ public:
 
 	float* CameraMatrixLeft;
 	float* CameraMatrixRight;
+	float* LeftEyeBorderConstraints;
+	float* RightEyeBorderConstraints;
 	bool useCameraMatricies = false;
 	bool updateOffset_x_y = false;
+	bool updateBorders = false;
 	//the below is just my defaults
 	float* left_offset_x_y = new float[2]{ 0.0,0.0 };
 	float* right_offset_x_y = new float[2]{ 0.0,0.0 };
