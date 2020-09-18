@@ -30,7 +30,6 @@
 #include <math.h>
 #include <float.h>
 #include "Tracker.cpp"
-#include "ZedTracker.cpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -60,7 +59,7 @@ extern "C" {
         if (data != nullptr)
         {
             glGenTextures(1, &texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
+            glBindTexture(GL_TEXTURE_2D, texture); 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -72,7 +71,7 @@ extern "C" {
 
         }
         else {
-            Debug::Log("Failed to load texture", Color::Red);
+            Debug::Log("Failed to load texture", Color::Red); 
         }
 
         return texture;
@@ -82,7 +81,7 @@ extern "C" {
     std::thread* t1;
     std::thread* t2;
     int x, y, width, height = 0;
-    bool firstEvent = false;
+    bool firstEvent = false; 
     // Plugin function to handle a specific rendering event
     static void UNITY_INTERFACE_API OnRenderEventObtainUnityContext(int eventID)
     {
@@ -90,7 +89,7 @@ extern "C" {
     }
 
     bool doExit = false;
-    bool doExit2 = false;
+    bool doExit2 = false; 
     bool startFunctioning = false;
     //realsense stuffs <TODO: Tidy this up later>
    
@@ -114,36 +113,38 @@ extern "C" {
             appMain.AppBody();
             appMain.Shutdown();
 
-        }        
+        }         
     }
     TrackerObject* to;
-    ZedTrackerObject* toz;
+    //ZedTrackerObject* toz; 
     DLL_EXPORT void stop() {
 
         appMain.StopInstance();
     }
     DLL_EXPORT void StopTrackers() {
-        doExit2 = true;
+        doExit2 = true; 
         doExit = true;
         if (to != nullptr) {
             Debug::Log("Stopping Realsense Tracking");
             to->DoExit3 = true;
         }
 
-        if (toz != nullptr) {
-            Debug::Log("Stopping ZED Tracking");
-            toz->DoExit3 = true;
-        }
+//        if (toz != nullptr) {
+  //          Debug::Log("Stopping ZED Tracking");
+    //        toz->DoExit3 = true;
+      //  }
     }
     std::thread* t3;
-    std::thread* t4;
+    std::thread* t4; 
     void DoFunction3() {
         to->DoFunctionTracking();
+        delete to;
+        to = nullptr;
     }
 
     void DoFunction4() {
-        toz->DoFunctionTracking();
-        toz->~ZedTrackerObject();
+        //toz->DoFunctionTracking();
+//        toz->~ZedTrackerObject();
     }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
         Debug::Log("Started Tracking Thread");
@@ -152,29 +153,29 @@ extern "C" {
     }
     DLL_EXPORT void StartTrackerThreadZed(bool useLocalization) {//ignored for now....
 
-        toz->DoExit3 = false;
+        //toz->DoExit3 = false;
         t3 = new std::thread(DoFunction4);
     }
     DLL_EXPORT float* GetLatestPose() {
         return to->pose;
     }
 
-    DLL_EXPORT float* GetLatestPoseZed() {
-        return toz->pose;
-    }
+//    DLL_EXPORT float* GetLatestPoseZed() {
+  //      //return toz->pose;
+    //}
     DLL_EXPORT void SetEyeBorders(float* leftBorders, float* rightborders) {
         appMain.oglControl.LeftEyeBorderConstraints = leftBorders;
         appMain.oglControl.RightEyeBorderConstraints = rightborders;
         appMain.oglControl.updateBorders = true;
         Debug::Log("Updating Borders");
     }
-    DLL_EXPORT void setScreenSpaceOffset(float* leftOffset, float* rightOffset) {
+    DLL_EXPORT void setScreenSpaceOffset(float* leftOffset, float* rightOffset) { 
         appMain.oglControl.left_offset_x_y = leftOffset;
         appMain.oglControl.right_offset_x_y = rightOffset;
         appMain.oglControl.updateOffset_x_y = true;
     }
     DLL_EXPORT void setLeftRightCameraMatricies(float* leftCameraMatrix, float* rightCameraMatrix) {
-        appMain.oglControl.CameraMatrixLeft = leftCameraMatrix;
+        appMain.oglControl.CameraMatrixLeft = leftCameraMatrix; 
         appMain.oglControl.CameraMatrixRight = rightCameraMatrix;
         appMain.oglControl.useCameraMatricies = true;
     }
@@ -201,14 +202,14 @@ extern "C" {
             to->ImportMap(inputData, Length); 
 
         }
-    }
-    DLL_EXPORT float* ObtainObjectPoseInLocalizedMap(const char* objectID) {
+    } 
+    DLL_EXPORT void ObtainObjectPoseInLocalizedMap(const char* objectID) {
         if (to != nullptr) {
-            return to->GrabObjectPose(objectID);
+            to->GrabObjectPose(objectID);
         }
         else {
             Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
-            return nullptr;
+            nullptr;
         }
     }
     DLL_EXPORT void SetObjectPoseInLocalizedMap(const char* objectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw) {
@@ -221,9 +222,9 @@ extern "C" {
         } 
     }
     DLL_EXPORT void ZedInitializeTrackerObject() {
-        if (toz == nullptr) { 
-            toz = new ZedTrackerObject();
-        }
+//        if (toz == nullptr) { 
+  //          toz = new ZedTrackerObject();
+    //    }
     }
      
     DLL_EXPORT void setCalibration(float* leftuvtorectx, float* leftuvtorecty, float* rightuvtorectx, float* rightuvtorecty) {
@@ -238,14 +239,14 @@ extern "C" {
         width = w; 
         height = h; 
         appMain.x = x; 
-        appMain.y = y; 
+        appMain.y = y;  
         appMain.width = width; 
         appMain.height = height;
         t1 = new std::thread(DoFunction2);
     }
-    
+     
     extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API
-        GetUnityContext()
+        GetUnityContext()   
     {
         return OnRenderEventObtainUnityContext;
     }
@@ -253,20 +254,22 @@ extern "C" {
     static FuncCallBack callbackInstance = nullptr;
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
+    typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);
     DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);
     DLL_EXPORT void RegisterBinaryMapCallback(FuncCallBack3 cb);
+    DLL_EXPORT void RegisterObjectPoseCallback(FuncCallBack4 cb);
     DLL_EXPORT void SaveOriginPose() {
         to->SetOrigin();  
     }
     DLL_EXPORT void SaveOriginPoseZed() {
-        toz->SetOrigin();
+//        toz->SetOrigin();
     }
 }
 void Debug::Log(const char* message, Color color) {
-    if (callbackInstance != nullptr) 
+    if (callbackInstance != nullptr)  
         callbackInstance(message, (int)color, (int)strlen(message));
-}
+} 
 
 void  Debug::Log(const std::string message, Color color) {
     const char* tmsg = message.c_str();
@@ -278,7 +281,7 @@ void  Debug::Log(const int message, Color color) {
     std::stringstream ss;
     ss << message;
     send_log(ss, color);
-}
+} 
 
 void  Debug::Log(const char message, Color color) {
     std::stringstream ss;
@@ -322,12 +325,17 @@ void RegisterDebugCallback(FuncCallBack cb) {
 void RegisterLocalizationCallback(FuncCallBack2 cb) {
     if(to != nullptr)
     to->callbackLocalization = cb;
-    if (toz != nullptr)
-        toz->callbackLocalization = cb;
+//    if (toz != nullptr)
+  //      toz->callbackLocalization = cb;
+}
+void RegisterObjectPoseCallback(FuncCallBack4 cb) {
+    if (to != nullptr) { 
+        to->callbackObjectPoseReceived = cb;
+    }
 }
 void RegisterBinaryMapCallback(FuncCallBack3 cb) {
     if (to != nullptr)
         to->callbackBinaryMap = cb;
-    if (toz != nullptr)
-        toz->callbackBinaryMap = cb;
+    //if (toz != nullptr)
+      //  toz->callbackBinaryMap = cb;
 }

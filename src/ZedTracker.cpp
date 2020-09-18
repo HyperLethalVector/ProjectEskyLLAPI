@@ -12,7 +12,6 @@
 #include <math.h>
 #include <float.h>
 #include "common_header.h"
-#include <sl/Camera.hpp>
 
 using namespace std;
 using namespace sl;
