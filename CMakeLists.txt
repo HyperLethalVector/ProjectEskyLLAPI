@@ -69,11 +69,13 @@ add_definitions(${OpenGL_DEFINITIONS})
 # Build an executable (Unix-like OSes generates ./ProjectCupboardLLAPI, on
 # Windows ./ProjectCupboardLLAPI.exe)
 # ..........................................
-add_library(libProjectEskyLLAPI SHARED ./src/mainLib.cpp ./src/OpenGLControl.cpp ./src/Tracker.cpp ./src/RenderScene.cpp ./src/Shaders.cpp ./src/Win_OpenGLApp.cpp)
-
+add_library(libProjectEskyLLAPI SHARED ./src/mainLibTrackingIncluded.cpp ./src/OpenGLControl.cpp ./src/Tracker.cpp ./src/RenderScene.cpp ./src/Shaders.cpp ./src/Win_OpenGLApp.cpp)
+add_library(libProjectEskyLLAPIRendererStandalone SHARED ./src/mainLibRendererStandalone.cpp ./src/OpenGLControl.cpp ./src/RenderScene.cpp ./src/Shaders.cpp ./src/Win_OpenGLApp.cpp)
+set_target_properties(libProjectEskyLLAPI PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 # Set executable dependency libraries
 # Equivalent to pass flags -lGL, -lGLU and -lglut 
 target_link_libraries(libProjectEskyLLAPI ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${DEPENDENCIES} ${REALSENSE2_FOUND})
+target_link_libraries(libProjectEskyLLAPIRendererStandalone ${GLUT_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${DEPENDENCIES})
 if(WIN32)
 message(STATUS "Adding Post build script to copy realsense2.dll to project's binary folder")
 message(STATUS "Will try to copy from ${DLL_DIR} to ${PROJECT_BINARY_OUTPUT_PATH}")
@@ -82,8 +84,3 @@ add_custom_command(TARGET libProjectEskyLLAPI POST_BUILD        # Adds a post-bu
         "${DLL_DIR}/realsense2.dll"                            # <--this is in-file
         ${PROJECT_BINARY_OUTPUT_PATH})                 # <--this is out-file path
 endif()
-
-#set_target_properties(libProjectCupboardLLAPI PROPERTIES
-#                      RUNTIME_OUTPUT_DIRECTORY_DEBUG E:/UnityProjects/NorthStarUnityIntegration/Assets/Plugins/x64
-#                      RUNTIME_OUTPUT_DIRECTORY_RELEASE E:/UnityProjects/NorthStarUnityIntegration/Assets/Plugins/x64/
-#)

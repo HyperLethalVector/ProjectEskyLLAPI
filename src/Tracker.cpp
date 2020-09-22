@@ -105,11 +105,11 @@ public:
     void SetOrigin() {
         doSetOriginMapInfo = true;
     }
-    stack<string> objectPosesToGrab;
+    bool grabOriginPose = false;
     void GrabObjectPose(string objectID) {
         if (hasLocalized) {
             Debug::Log("Was able to call back, but needs to fire events locally");
-            objectPosesToGrab.push(objectID);
+            grabOriginPose = true;
         }
         else {
             Debug::Log("ERROR: The map hasn't localized yet!", Color::Red);
@@ -224,38 +224,45 @@ public:
                     pose[4] = predicted_pose.rotation.y;
                     pose[5] = predicted_pose.rotation.z;
                     pose[6] = predicted_pose.rotation.w;
+
                     if (posesToUpdate.size() > 0) {
-                        map<string, rs2_pose>::iterator it;
-                        for (it = posesToUpdate.begin(); it != posesToUpdate.end(); it++)
-                        {
-                            if (tm_sensor.set_static_node(it->first, it->second.translation, it->second.rotation)) {
+                            posesToUpdate.clear();
+                            rs2_pose p;
+                            p.translation.x = 0;
+                            p.translation.y = 0;
+                            p.translation.z = 0;
+                            p.rotation.x = 0;
+                            p.rotation.y = 0;
+                            p.rotation.z = 0;
+                            p.rotation.w = 1;
+                            if (tm_sensor.set_static_node("origin_of_map", p.translation,p.rotation)) {
                                 ostringstream oss;
-                                oss << "Exported pose for: " << it->first << std::endl;
+                                oss << "Exported pose for: " << "origin" << std::endl;
                                 Debug::Log(oss.str(), Color::Red);
                             }
                             else {
                                 ostringstream oss;
-                                oss << "Unable to export pose for: " << it->first << std::endl;
+                                oss << "Unable to export pose for: " << "origin" << std::endl;
                                 Debug::Log(oss.str(), Color::Red);
                             }
-                        }
+
                     }
                     posesToUpdate.clear();
                     //Do we need to store the frames?
-                    while (objectPosesToGrab.size() > 0) {
-                        string s = objectPosesToGrab.top();
-                        objectPosesToGrab.pop();
-                        if (tm_sensor.get_static_node(s, object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
-                            if (callbackObjectPoseReceived != nullptr) {
-                                callbackObjectPoseReceived(s, object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
+                        if(grabOriginPose) {
+                            grabOriginPose = false;
+
+                            if (tm_sensor.get_static_node("origin_of_map", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
+                                if (callbackObjectPoseReceived != nullptr) {
+                                    callbackObjectPoseReceived("origin", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
+                                }
+                                else {
+                                    Debug::Log("Wtf? There's no callback?", Color::Red);
+                                }
                             }
                             else {
-                                Debug::Log("Wtf? There's no callback?", Color::Red);
+                                Debug::Log("ERROR: The object could not be found!", Color::Red);
                             }
-                        }
-                        else {
-                            Debug::Log("ERROR: The object could not be found!", Color::Red);
-                        }
 
                     }
                     //Do we need to grab the current local map?

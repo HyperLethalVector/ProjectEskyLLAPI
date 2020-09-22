@@ -1,5 +1,4 @@
 #include "common_header.h"
-#include <windows.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -17,8 +16,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "win_OpenGLApp.h"
-#include <librealsense2/rs.hpp>
-#include <librealsense2/rsutil.h>
 #include <array>
 #include <cmath>
 #include <iostream>
@@ -29,8 +26,6 @@
 #include <mutex>
 #include <math.h>
 #include <float.h>
-#include "Tracker.cpp"
-
 #define STB_IMAGE_IMPLEMENTATION
 
 
@@ -79,7 +74,6 @@ extern "C" {
 #endif
     int WindowID = 0;
     std::thread* t1;
-    std::thread* t2;
     int x, y, width, height = 0;
     bool firstEvent = false; 
     // Plugin function to handle a specific rendering event
@@ -89,7 +83,6 @@ extern "C" {
     }
 
     bool doExit = false;
-    bool doExit2 = false; 
     bool startFunctioning = false;
     //realsense stuffs <TODO: Tidy this up later>
    
@@ -97,7 +90,6 @@ extern "C" {
     void DoFunction2()
     {
         doExit = false;
-        doExit2 = false;
         Debug::Log("Creating Window");
 
         if(!appMain.InitializeApp("ProjectCupboard")) {
@@ -115,54 +107,12 @@ extern "C" {
 
         }         
     }
-    TrackerObject* to;
     //ZedTrackerObject* toz; 
     DLL_EXPORT void stop() {
 
         appMain.StopInstance();
     }
-    DLL_EXPORT void StopTrackers() {
-        doExit2 = true; 
-        doExit = true;
-        if (to != nullptr) {
-            Debug::Log("Stopping Realsense Tracking");
-            to->DoExit3 = true;
-        }
 
-//        if (toz != nullptr) {
-  //          Debug::Log("Stopping ZED Tracking");
-    //        toz->DoExit3 = true;
-      //  }
-    }
-    std::thread* t3;
-    std::thread* t4; 
-    void DoFunction3() {
-        to->DoFunctionTracking();
-        delete to;
-        to = nullptr;
-    }
-
-    void DoFunction4() {
-        //toz->DoFunctionTracking();
-//        toz->~ZedTrackerObject();
-    }
-    DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
-        Debug::Log("Started Tracking Thread");
-        to->DoExit3 = false;
-        t3 = new std::thread(DoFunction3);
-    }
-    DLL_EXPORT void StartTrackerThreadZed(bool useLocalization) {//ignored for now....
-
-        //toz->DoExit3 = false;
-        t3 = new std::thread(DoFunction4);
-    }
-    DLL_EXPORT float* GetLatestPose() {
-        return to->pose;
-    }
-
-//    DLL_EXPORT float* GetLatestPoseZed() {
-  //      //return toz->pose;
-    //}
     DLL_EXPORT void SetEyeBorders(float* leftBorders, float* rightborders) {
         appMain.oglControl.LeftEyeBorderConstraints = leftBorders;
         appMain.oglControl.RightEyeBorderConstraints = rightborders;
@@ -185,46 +135,6 @@ extern "C" {
         appMain.LeftTexture = LeftID;
         appMain.RightTexture = RightID;
         Debug::Log("Adding the left and right pointers ");
-    }
-    DLL_EXPORT void InitializeTrackerObject() {
-        if (to == nullptr) { 
-            to = new TrackerObject();
-        }
-    }
-    DLL_EXPORT void ObtainMap() {
-        if (to != nullptr) {
-            to->GrabMap();
-        }
-    }
-    DLL_EXPORT void SetMapData(unsigned char* inputData, int Length) {
-        if (to != nullptr) {
-            Debug::Log("Should Start Now");
-            to->ImportMap(inputData, Length); 
-
-        }
-    } 
-    DLL_EXPORT void ObtainObjectPoseInLocalizedMap(const char* objectID) {
-        if (to != nullptr) {
-            to->GrabObjectPose(objectID);
-        }
-        else {
-            Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
-            nullptr;
-        }
-    }
-    DLL_EXPORT void SetObjectPoseInLocalizedMap(const char* objectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw) {
-        if (to != nullptr) {
-            Debug::Log("Trying to do the object pose saving", Color::Yellow);
-            to->SetObjectPose(objectID,tx,ty,tz,qx,qy,qz,qw);
-        }
-        else {
-            Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
-        } 
-    }
-    DLL_EXPORT void ZedInitializeTrackerObject() {
-//        if (toz == nullptr) { 
-  //          toz = new ZedTrackerObject();
-    //    }
     }
      
     DLL_EXPORT void setCalibration(float* leftuvtorectx, float* leftuvtorecty, float* rightuvtorectx, float* rightuvtorecty) {
@@ -252,19 +162,8 @@ extern "C" {
     }
     typedef void(*FuncCallBack)(const char* message, int color, int size);
     static FuncCallBack callbackInstance = nullptr;
-    typedef void(*FuncCallBack2)(int LocalizationDelegate);
-    typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
-    typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);
-    DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);
-    DLL_EXPORT void RegisterBinaryMapCallback(FuncCallBack3 cb);
-    DLL_EXPORT void RegisterObjectPoseCallback(FuncCallBack4 cb);
-    DLL_EXPORT void SaveOriginPose() {
-        to->SetOrigin();  
-    }
-    DLL_EXPORT void SaveOriginPoseZed() {
-//        toz->SetOrigin();
-    }
+
 }
 void Debug::Log(const char* message, Color color) {
     if (callbackInstance != nullptr)  
@@ -291,7 +190,7 @@ void  Debug::Log(const char message, Color color) {
  
 void  Debug::Log(const float message, Color color) {
     std::stringstream ss;
-    ss << message;
+    ss << message; 
     send_log(ss, color);
 } 
 
@@ -318,24 +217,7 @@ void Debug::send_log(const std::stringstream& ss, const Color& color) {
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
 
-//Create a callback delegate
+//Create a callback delegate 
 void RegisterDebugCallback(FuncCallBack cb) {
     callbackInstance = cb;
-}
-void RegisterLocalizationCallback(FuncCallBack2 cb) {
-    if(to != nullptr)
-    to->callbackLocalization = cb;
-//    if (toz != nullptr)
-  //      toz->callbackLocalization = cb;
-}
-void RegisterObjectPoseCallback(FuncCallBack4 cb) {
-    if (to != nullptr) { 
-        to->callbackObjectPoseReceived = cb;
-    }
-}
-void RegisterBinaryMapCallback(FuncCallBack3 cb) {
-    if (to != nullptr)
-        to->callbackBinaryMap = cb;
-    //if (toz != nullptr)
-      //  toz->callbackBinaryMap = cb;
 }
