@@ -128,7 +128,7 @@ void  Debug::Log(const std::string message, Color color) {
     if (callbackInstance != nullptr)
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
-
+ 
 void  Debug::Log(const int message, Color color) {
     std::stringstream ss;
     ss << message;

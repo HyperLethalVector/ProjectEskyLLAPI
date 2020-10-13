@@ -52,15 +52,15 @@ extern "C" {
     DLL_EXPORT void InitializeTrackerObject() {
         if (to == nullptr) { 
             to = new TrackerObject();
-        }
+        } 
     }
-    DLL_EXPORT void ObtainMap() {
+    DLL_EXPORT void ObtainMap() { 
         if (to != nullptr) {
             to->GrabMap();
         }
-    }
+    } 
     DLL_EXPORT void SetMapData(unsigned char* inputData, int Length) {
-        if (to != nullptr) {
+        if (to != nullptr) { 
             Debug::Log("Should Start Now");
             to->ImportMap(inputData, Length); 
         }
@@ -79,7 +79,7 @@ extern "C" {
             Debug::Log("Trying to do the object pose saving", Color::Yellow);
             to->SetObjectPose(objectID,tx,ty,tz,qx,qy,qz,qw);
         }
-        else {
+        else { 
             Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
         } 
     }     
@@ -101,7 +101,7 @@ extern "C" {
             to->meshCallback = myCallback;
         }
     }
-    DLL_EXPORT void RegisterMeshCompleteCallback(TrackerObject::FuncMeshCompleteCallback myCallback) {
+    DLL_EXPORT void RegisterMeshCompleteCallback(TrackerObject::FuncMeshCompleteCallback myCallback) { 
         if (to != nullptr) {
             to->meshCompleteCallback = myCallback;
         }
@@ -114,7 +114,7 @@ extern "C" {
     {
         s_UnityInterfaces = unityInterfaces;
         s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
-        s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+        s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent); 
         OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
     }
 

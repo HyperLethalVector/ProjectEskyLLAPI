@@ -163,16 +163,18 @@ public:
     bool shouldUploadData = false;
     bool LockImage = false;
     void UpdatecameraTexture() {
-        ID3D11DeviceContext* ctx = NULL;
-        m_Device->GetImmediateContext(&ctx);
-        //UpdateMarker
-        LockImage = true;
-        if (d3dtex != nullptr) {
-            ctx->UpdateSubresource(d3dtex, 0, NULL, currentImage.getPtr<sl::uchar1>(), textureWidth * textureChannels, 0);
-        }
-        LockImage = false;
-        ctx->Release();
 
+        if (m_Device != nullptr) {
+            ID3D11DeviceContext* ctx = NULL;
+            m_Device->GetImmediateContext(&ctx);
+            //UpdateMarker
+            LockImage = true;
+            if (d3dtex != nullptr) {
+                ctx->UpdateSubresource(d3dtex, 0, NULL, currentImage.getPtr<sl::uchar1>(), textureWidth * textureChannels, 0);
+            }
+            LockImage = false;
+            ctx->Release();
+        }
     }
     void DoFunctionTracking() {
 
@@ -183,10 +185,9 @@ public:
                 POSITIONAL_TRACKING_STATE tracking_state = POSITIONAL_TRACKING_STATE::OFF;
                 // Set configuration parameters
                 InitParameters init_params;
-                init_params.camera_resolution = RESOLUTION::HD720; // Use HD720 video mode (default fps: 60)
+                init_params.camera_resolution = RESOLUTION::VGA; // Use HD720 video mode (default fps: 60)
                 init_params.coordinate_system = COORDINATE_SYSTEM::LEFT_HANDED_Y_UP; // Use a right-handed Y-up coordinate system
                 init_params.coordinate_units = UNIT::METER; // Set units in meters
-                init_params.sensors_required = true;
                 chrono::high_resolution_clock::time_point ts_last;
 
                 Debug::Log("Attempting to start the tracker up", Color::Green);
@@ -217,13 +218,14 @@ public:
                 std::vector<float> normalsToReturn;
                 std::vector<float> UVsToReturn;
                 std::vector<int> triangleIndicies;
+                bool zedRequestSuccess = false;
                 while (!shouldRestart) {
-                    if (shouldStartSpatialMapping) {
+                    if (shouldStartSpatialMapping) { 
                         Debug::Log("ZED: Starting Spatial Mapping");
                         shouldStartSpatialMapping = false;
                         SpatialMappingParameters spatial_mapping_parameters;
                         spatial_mapping_parameters.resolution_meter = SpatialMappingParameters::get(SpatialMappingParameters::MAPPING_RESOLUTION::MEDIUM);
-                        spatial_mapping_parameters.use_chunk_only = true;
+                        spatial_mapping_parameters.use_chunk_only = false;
                         spatial_mapping_parameters.range_meter = SpatialMappingParameters::get(SpatialMappingParameters::MAPPING_RANGE::MEDIUM);
                         spatial_mapping_parameters.save_texture = false;
                         spatial_mapping_parameters.map_type = SpatialMappingParameters::SPATIAL_MAP_TYPE::MESH;
@@ -237,19 +239,7 @@ public:
                     }
                     if (zed.grab() == ERROR_CODE::SUCCESS) {
                         zed.getPosition(zed_pose, REFERENCE_FRAME::WORLD);
-                        if (!LockImage) {
-                            if (zed.retrieveImage(currentImage, sl::VIEW::LEFT, sl::MEM::CPU) == sl::ERROR_CODE::SUCCESS) {
-                                if (textureWidth == 0) {//we are unitialized 
-                                    textureWidth = currentImage.getWidth();
-                                    textureHeight = currentImage.getHeight();
-                                    textureChannels = currentImage.getChannels(); 
-                                    sl::CameraInformation cameraInfo = zed.getCameraInformation();
-                                    if (textureInitializedCallback != nullptr) {
-                                        textureInitializedCallback(textureWidth, textureHeight, textureChannels,cameraInfo.calibration_parameters.left_cam.v_fov);
-                                    }
-                                }
-                            }
-                        }
+                        zedRequestSuccess = true;
                         sl::Translation zed_translation = zed_pose.getTranslation();
                         sl::Rotation zed_rotation = zed_pose.getRotation();
                         int ts = zed_pose.timestamp.getNanoseconds();
@@ -271,25 +261,23 @@ public:
                         pose[5] = zed_rotation.getOrientation().z;
                         pose[6] = zed_rotation.getOrientation().w;
                     }
+                    else { zedRequestSuccess = false; }
                     if (mapping_activated) {
                         mapping_state = zed.getSpatialMappingState();
                         auto duration = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - ts_last).count();
-                        if ((duration > 500 && shouldRequestNewChunks)) {
-                            Debug::Log("ZED: Requesting Chunks!", Color::Orange);
+                        if ((duration > 2000 && shouldRequestNewChunks)) {
                             shouldRequestNewChunks = false;
                             zed.requestSpatialMapAsync();
                             ts_last = chrono::high_resolution_clock::now();
                         }
                         if (zed.getSpatialMapRequestStatusAsync() == ERROR_CODE::SUCCESS) {
                             if (meshCallback != nullptr && meshCompleteCallback != nullptr) {
-                                Debug::Log("ZED: Chunk request complete, pulling!", Color::Orange);
                                 zed.retrieveSpatialMapAsync(map);
-                                verticesToReturn.clear();
-                                normalsToReturn.clear();
-                                UVsToReturn.clear();
-                                triangleIndicies.clear();
                                 for (int i = 0; i < map.chunks.size(); i++) {
-                                    //                                        map.triangles
+                                    verticesToReturn.clear();
+                                    normalsToReturn.clear();
+                                    UVsToReturn.clear();
+                                    triangleIndicies.clear();
                                     for (int j = 0; j < map.chunks[i].vertices.size(); j++) {
                                         verticesToReturn.push_back(map.chunks[i].vertices[j].x);
                                         verticesToReturn.push_back(map.chunks[i].vertices[j].y);
@@ -312,11 +300,25 @@ public:
                                     if (verticesToReturn.size() > 0 && map.chunks[i].has_been_updated) {
                                         meshCallback(i, verticesToReturn.data(), verticesToReturn.size(), normalsToReturn.data(), normalsToReturn.size(), UVsToReturn.data(), UVsToReturn.size(), triangleIndicies.data(), triangleIndicies.size());
                                     }
-                                }                                
+                                }
                                 meshCompleteCallback();
                             }
                         }
-
+                    }
+                    if(zedRequestSuccess){
+                        if (!LockImage) {
+                            if (zed.retrieveImage(currentImage, sl::VIEW::LEFT, sl::MEM::CPU) == sl::ERROR_CODE::SUCCESS) {
+                                if (textureWidth == 0) {//we are unitialized 
+                                    textureWidth = currentImage.getWidth();
+                                    textureHeight = currentImage.getHeight();
+                                    textureChannels = currentImage.getChannels();
+                                    sl::CameraInformation cameraInfo = zed.getCameraInformation();
+                                    if (textureInitializedCallback != nullptr) {
+                                        textureInitializedCallback(textureWidth, textureHeight, textureChannels, cameraInfo.calibration_parameters.left_cam.v_fov);
+                                    }
+                                }
+                            }
+                        }
                     }
                     if (shouldStopSpatialMapping) {
                         mapping_activated = false;
