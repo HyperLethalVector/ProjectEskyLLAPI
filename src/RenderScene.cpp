@@ -126,7 +126,12 @@ Result:	Renders whole scene.
 bool firstFrame = false;
 void RenderScene(LPVOID lpParam)
 {
+
 	COpenGLControl* oglControl = (COpenGLControl*)lpParam;
+	if (oglControl->shouldUpdateInternalLinkage)
+	{ 
+		oglControl->shouldUpdateInternalLinkage = false;	
+	}
 	glClear(GL_COLOR_BUFFER_BIT);
 	if (oglControl->useCameraMatricies) {
 		Debug::Log("Set camera matricies");

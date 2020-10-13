@@ -155,12 +155,22 @@ bool COpenGLControl::InitOpenGL(HINSTANCE hInstance, HWND* a_hWnd, int iMajorVer
 		if(!SetPixelFormat(hDC, iPixelFormat, &pfd))return false;
 
 		hRC = wglCreateContextAttribsARB(hDC, 0, iContextAttribs);
+		Sleep(1000);
+		int i = 5; 
+		while (i > 0) {
+			i--;
+			if (wglShareLists(unityContext, hRC)) {
+				Debug::Log("Was able to share context!", Color::Red);
+			}
+			else {
+				ostringstream oss;
+				oss << "Error: " << GetLastError() << std::endl;
+				Debug::Log("Was NOT able to share context!", Color::Red);
+				Debug::Log(oss.str(), Color::Red);
+			}
 
-		// If everything went OK
-		if(hRC) wglMakeCurrent(hDC, hRC);
-		else bError = true;
-		wglMakeCurrent(NULL, NULL);
-		wglShareLists(unityContext, hRC);
+
+		}
 		if (hRC) wglMakeCurrent(hDC, hRC);
 		else bError = true;
 	}
@@ -219,7 +229,7 @@ void COpenGLControl::RegisterSimpleOpenGLClass(HINSTANCE hInstance)
 	WNDCLASSEX wc;
 
 	wc.cbSize = sizeof(WNDCLASSEX);
-	wc.style =  CS_HREDRAW | CS_VREDRAW | CS_OWNDC | CS_DBLCLKS;
+	wc.style =  CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
 	wc.lpfnWndProc = (WNDPROC)MsgHandlerSimpleOpenGLClass;
 	wc.cbClsExtra = 0; wc.cbWndExtra = 0;
 	wc.hInstance = hInstance;

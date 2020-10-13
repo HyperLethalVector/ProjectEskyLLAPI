@@ -153,13 +153,7 @@ public:
     bool shouldLoadMap = false;
     bool shouldGrabMap = false;
     void ImportMap(uint8_t* mapData, int length) {
-            mapDataToLoad.clear();
-            mapDataToLoad.assign(mapData, mapData + length);
             Debug::Log("Here We Go!", Color::Green);
-            Debug::Log(length, Color::Orange);
-            std::stringstream ss;
-            ss << "RealSense size " << mapDataToLoad.size()<< std::endl;
-            Debug::Log(ss.str(), Color::Orange);
             shouldLoadMap = true;
     }
 
@@ -174,25 +168,9 @@ public:
                 rs2::pipeline_profile myProf;
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
-                //First, should we upload the map?
-                if (shouldUploadData) {
-                    shouldUploadData = false;
-                    try {
-                        Debug::Log("Loading Map");
-
-                        tm_sensor.import_localization_map(mapDataToLoad);
-                        ostringstream oss;
-                        oss << "Map loaded from input data succesfully!" << std::endl;
-                        Debug::Log(oss.str(), Color::Green);
-                    }
-                    catch (std::exception e) {
-                        ostringstream oss;
-                        oss << "Couldn't Load Map: " << e.what() << std::endl;
-                        Debug::Log(oss.str(), Color::Red);
-                    }
-                }
-                //Then let's initialize the sensor and begin tracking
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
+
+                    Debug::Log("Received some callback");
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
                         hasLocalized = true;
                         if (callbackLocalization != nullptr) {
@@ -203,12 +181,37 @@ public:
                         }
                     }
                     });
+                //First, should we upload the map?
+                if (shouldUploadData) {
+                    shouldUploadData = false;
+                    try {
+                        Debug::Log("Loading Map");
+
+                        if (tm_sensor.import_localization_map(bytes_from_raw_file("temp.raw"))) {
+                            ostringstream oss;
+                            oss << "Map loaded from input data succesfully!" << std::endl;
+                            Debug::Log(oss.str(), Color::Green);
+                        }  
+                        else {
+                            ostringstream oss;
+                            oss << "Issue loading the map??" << std::endl;
+                            Debug::Log(oss.str(), Color::Green);
+                        }
+                    }
+                    catch (std::exception e) {
+                        ostringstream oss;
+                        oss << "Couldn't Load Map: " << e.what() << std::endl;
+                        Debug::Log(oss.str(), Color::Red);
+                    }
+                }
+                //Then let's initialize the sensor and begin tracking
+               
 
                 Debug::Log("Attempting to start the tracker up", Color::Green);
                 myProf = pipe.start(cfg);
                 Debug::Log("Tracker started!", Color::Green);
                 shouldRestart = false;
-                while (!shouldRestart) {
+                while (!shouldRestart && !DoExit3) {
                     rs2::frameset frameset = pipe.wait_for_frames();
                     rs2::pose_frame pose_frame = frameset.get_pose_frame();
                     rs2_pose pose_data = pose_frame.get_pose_data();
@@ -223,38 +226,14 @@ public:
                     pose[3] = predicted_pose.rotation.x;
                     pose[4] = predicted_pose.rotation.y;
                     pose[5] = predicted_pose.rotation.z;
-                    pose[6] = predicted_pose.rotation.w;
-
-                    if (posesToUpdate.size() > 0) {
-                            posesToUpdate.clear();
-                            rs2_pose p;
-                            p.translation.x = 0;
-                            p.translation.y = 0;
-                            p.translation.z = 0;
-                            p.rotation.x = 0;
-                            p.rotation.y = 0;
-                            p.rotation.z = 0;
-                            p.rotation.w = 1;
-                            if (tm_sensor.set_static_node("origin_of_map", p.translation,p.rotation)) {
-                                ostringstream oss;
-                                oss << "Exported pose for: " << "origin" << std::endl;
-                                Debug::Log(oss.str(), Color::Red);
-                            }
-                            else {
-                                ostringstream oss;
-                                oss << "Unable to export pose for: " << "origin" << std::endl;
-                                Debug::Log(oss.str(), Color::Red);
-                            }
-
-                    }
-                    posesToUpdate.clear();
+                    pose[6] = predicted_pose.rotation.w; 
                     //Do we need to store the frames?
-                        if(grabOriginPose) {
-                            grabOriginPose = false;
+                    if(grabOriginPose) {
+                        grabOriginPose = false;
 
-                            if (tm_sensor.get_static_node("origin_of_map", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
+                            if (tm_sensor.get_static_node("bugorigin", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
                                 if (callbackObjectPoseReceived != nullptr) {
-                                    callbackObjectPoseReceived("origin", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
+                                    callbackObjectPoseReceived("origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
                                 }
                                 else {
                                     Debug::Log("Wtf? There's no callback?", Color::Red);
@@ -267,11 +246,31 @@ public:
                     }
                     //Do we need to grab the current local map?
                     if (shouldGrabMap) {
-                        shouldGrabMap = false;                        
+                        shouldGrabMap = false;    
+                        rs2_pose p;
+                        p.translation.x = 0;
+                        p.translation.y = 0;
+                        p.translation.z = 0;
+                        p.rotation.x = 0;
+                        p.rotation.y = 0;
+                        p.rotation.z = 0;
+                        p.rotation.w = 1;
+                        if (tm_sensor.set_static_node("bugorigin", p.translation, p.rotation)) {
+                            ostringstream oss;
+                            oss << "Exported pose for: " << "origin" << std::endl;
+                            Debug::Log(oss.str(), Color::Red);
+                        }
+                        else {
+                            ostringstream oss;
+                            oss << "Unable to export pose for: " << "origin" << std::endl;
+                            Debug::Log(oss.str(), Color::Red);
+                        }
                         try {
+                            std::this_thread::sleep_for(std::chrono::seconds(2));
                             rs2::calibration_table res = tm_sensor.export_localization_map();
-                            //raw_file_from_bytes("map.raw", res);
-                            callbackBinaryMap(res.data(), res.size());
+                            std::this_thread::sleep_for(std::chrono::seconds(2));
+                            raw_file_from_bytes("temp.raw", res);
+                            callbackBinaryMap(NULL, NULL);
                         }
                         catch (const std::exception& ex) {
                             // ...
@@ -293,18 +292,23 @@ public:
                     }
                     //Do we need to load the map? if so exit all loops to allow the device to shutdown, setting the relevant flags
                     if (shouldLoadMap) {
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
                         shouldLoadMap = false;
                         shouldUploadData = true;
                         shouldRestart = true;
                     }
                     if (DoExit3) {//if we should exit, exit the tracker loop first
                         shouldRestart = true;
+                        Debug::Log("I should be exiting?");
                     }
                 }
 
-
+                std::this_thread::sleep_for(std::chrono::seconds(1));
                 pipe.stop(); 
                 Debug::Log("Stopped Tracker, will attempt to restart again");
+                if (DoExit3) {
+                    break;
+                }
             }
             catch (const rs2::error& e)
             {

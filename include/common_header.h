@@ -13,7 +13,6 @@
 
 using namespace std;
 
-#include <gl/glew.h>
 
 // Some useful defines
 

@@ -24,6 +24,8 @@ public:
 	static void RegisterSimpleOpenGLClass(HINSTANCE hInstance);
 	static void UnregisterSimpleOpenGLClass(HINSTANCE hInstance);
 	HGLRC unityContext;
+	bool shouldUpdateInternalLinkage = false;
+
 	int TextureIDLeft = 0;
 	int TextureIDRight = 0;
 
@@ -43,12 +45,14 @@ public:
 	float* right_uv_to_rect_y = new float[16]{ 1.0129568069314265, -2.110976542118192, 1.4108474581893895, -0.7746290913232183, -0.746419837008027, 1.747642287758405, -1.5753294007072252, 0.7143402603200871, 0.5607717274125551, -1.5019493985594772, 1.2539128525783017, -0.42999735712430215, -0.21517910830152714, 0.5965062719847273, -0.5664205050494074, 0.18545738302854597 };
 	void MakeCurrent();
 	void SwapBuffersM();
+	HDC hDC;
+	HGLRC hRC;
 private:
 	bool InitGLEW(HINSTANCE hInstance);
 
-	HDC hDC;
+
 	HWND* hWnd;
-	HGLRC hRC;
+
 	static bool bClassRegistered;
 	static bool bGlewInitialized;
 	int iMajorVersion, iMinorVersion;

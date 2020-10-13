@@ -98,7 +98,7 @@ void COpenGLWinApp::RegisterAppClass(HINSTANCE a_hInstance)
 	WNDCLASSEX wcex;
 	memset(&wcex, 0, sizeof(WNDCLASSEX));
 	wcex.cbSize = sizeof(WNDCLASSEX);
-	wcex.style = CS_OWNDC;
+	wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
 
 	wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 

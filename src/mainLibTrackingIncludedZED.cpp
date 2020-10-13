@@ -16,75 +16,57 @@
 #include <mutex>
 #include <math.h>
 #include <float.h>
-#include "Tracker.cpp"
+#include "Tracker_ZED.cpp"
 
 #define STB_IMAGE_IMPLEMENTATION
-
-
-
-
-
-
 //-------------------------------------------------------------------
-
 #define DLL_EXPORT __declspec(dllexport)
+
 #ifdef __cplusplus  
 extern "C" {
 
+
 #endif
-    bool doExit2 = false; 
     TrackerObject* to;
+    ID3D11Device* m_Device;
     DLL_EXPORT void StopTrackers() {
-        doExit2 = true; 
         if (to != nullptr) {
-            Debug::Log("Stopping Realsense Tracking");
-            to->DoExit3 = true; 
-            to->StopTracking();
+            Debug::Log("Stopping ZED Tracking");
+            to->DoExit3 = true;
         }
-    }
+    } 
     std::thread* t3;
     void DoFunction3() {
         to->DoFunctionTracking();
         delete to;
         to = nullptr;
     }
-
-    void DoFunction4() {
-        //toz->DoFunctionTracking();
-//        toz->~ZedTrackerObject();
-    }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
         Debug::Log("Started Tracking Thread");
-        to->DoExit3 = false;
+        to->DoExit3 = false; 
         t3 = new std::thread(DoFunction3);
     }
-    DLL_EXPORT void StartTrackerThreadZed(bool useLocalization) {//ignored for now....
-
-        //toz->DoExit3 = false;
-        t3 = new std::thread(DoFunction4);
-    }
-    DLL_EXPORT float* GetLatestPose() { 
+    DLL_EXPORT float* GetLatestPose() {
         return to->pose;
     }
     DLL_EXPORT void InitializeTrackerObject() {
         if (to == nullptr) { 
             to = new TrackerObject();
-        } 
+        }
     }
     DLL_EXPORT void ObtainMap() {
         if (to != nullptr) {
             to->GrabMap();
         }
     }
-    DLL_EXPORT void SetMapData(unsigned char* inputData, int Length) { 
+    DLL_EXPORT void SetMapData(unsigned char* inputData, int Length) {
         if (to != nullptr) {
             Debug::Log("Should Start Now");
             to->ImportMap(inputData, Length); 
-
         }
     } 
     DLL_EXPORT void ObtainObjectPoseInLocalizedMap(const char* objectID) {
-        if (to != nullptr) {
+        if (to != nullptr) { 
             to->GrabObjectPose(objectID);
         }
         else {
@@ -100,11 +82,8 @@ extern "C" {
         else {
             Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
         } 
-    }
-    DLL_EXPORT void ZedInitializeTrackerObject() {
-
-    }
-     
+    }     
+    
     typedef void(*FuncCallBack)(const char* message, int color, int size);
     static FuncCallBack callbackInstance = nullptr;
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
@@ -117,6 +96,86 @@ extern "C" {
     DLL_EXPORT void SaveOriginPose() {
         to->SetOrigin();  
     }
+    DLL_EXPORT void RegisterMeshCallback(TrackerObject::FuncMeshCallback myCallback) {
+        if (to != nullptr) {
+            to->meshCallback = myCallback;
+        }
+    }
+    DLL_EXPORT void RegisterMeshCompleteCallback(TrackerObject::FuncMeshCompleteCallback myCallback) {
+        if (to != nullptr) {
+            to->meshCompleteCallback = myCallback;
+        }
+    }
+    static IUnityInterfaces* s_UnityInterfaces = NULL;
+    static IUnityGraphics* s_Graphics = NULL;
+
+    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType);
+    extern "C" void	UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces * unityInterfaces)
+    {
+        s_UnityInterfaces = unityInterfaces;
+        s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
+        s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
+    }
+
+    extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
+    {
+        s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+    }
+     
+    DLL_EXPORT void ProcessDeviceEvent(UnityGfxDeviceEventType type, IUnityInterfaces* interfaces)
+    {
+        
+    }
+    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float v_fov);
+    DLL_EXPORT void SetTextureInitializedCallback(FuncTextureInitializedCallback myCallback) {
+        if (to != nullptr) {
+            to->textureInitializedCallback = myCallback;
+        }
+        else {
+            Debug::Log("Tracker not initialized!!");
+        }
+    }
+    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
+    {
+        // Create graphics API implementation upon initialization
+        if (eventType == kUnityGfxDeviceEventInitialize)
+        {
+            IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
+            m_Device = d3d->GetDevice();
+        }
+        else if (eventType == kUnityGfxDeviceEventShutdown) {
+        }       
+    }
+    
+    DLL_EXPORT void HookDeviceToZed() {
+        if (to != nullptr) {
+            to->m_Device = m_Device; 
+        }
+        else {
+            Debug::Log("Tracker hasn't been initialized", Color::Red);
+        }
+    }
+    DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
+        if (to != nullptr) {
+            to->SetTexturePointer(textureHandle);
+        }
+    }
+    DLL_EXPORT void StartSpatialMapping(int ChunkSizes) {
+        if (to != nullptr) {
+            to->StartSpatialMapping(ChunkSizes);
+        }
+    }
+    DLL_EXPORT void StopSpatialMapping(int ChunkSizes) {
+        if (to != nullptr) {
+            to->StopSpatialMapping();
+        }
+    }
+    DLL_EXPORT void CompletedMeshUpdate() {
+        if (to != nullptr) {
+            to->shouldRequestNewChunks = true;
+        }
+    }
 }
 void Debug::Log(const char* message, Color color) {
     if (callbackInstance != nullptr)  
@@ -127,8 +186,18 @@ void  Debug::Log(const std::string message, Color color) {
     const char* tmsg = message.c_str();
     if (callbackInstance != nullptr)
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
+} 
+static void UNITY_INTERFACE_API OnRenderEvent(int eventID)  
+{
+    if (to != nullptr) {
+        to->UpdatecameraTexture();
+    }
 }
 
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc()
+{
+    return OnRenderEvent;
+}
 void  Debug::Log(const int message, Color color) {
     std::stringstream ss;
     ss << message;
@@ -150,20 +219,22 @@ void  Debug::Log(const float message, Color color) {
 void  Debug::Log(const double message, Color color) {
     std::stringstream ss;
     ss << message;
-    send_log(ss, color); 
+    send_log(ss, color);
 }
+
 void Debug::Log(const bool message, Color color) {
     std::stringstream ss;
     if (message)
         ss << "true"; 
     else
         ss << "false"; 
+
     send_log(ss, color);
 }
 
 void Debug::send_log(const std::stringstream& ss, const Color& color) {
     const std::string tmp = ss.str();
-    const char* tmsg = tmp.c_str();
+    const char* tmsg = tmp.c_str(); 
     if (callbackInstance != nullptr)
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
@@ -172,7 +243,7 @@ void Debug::send_log(const std::stringstream& ss, const Color& color) {
 void RegisterDebugCallback(FuncCallBack cb) {
     callbackInstance = cb;
 }
-void RegisterLocalizationCallback(FuncCallBack2 cb) { 
+void RegisterLocalizationCallback(FuncCallBack2 cb) {
     if(to != nullptr) 
     to->callbackLocalization = cb;
 }
@@ -185,3 +256,4 @@ void RegisterBinaryMapCallback(FuncCallBack3 cb) {
     if (to != nullptr)
         to->callbackBinaryMap = cb;
 }
+  
