@@ -154,7 +154,7 @@ extern "C" {
         }
         else {
             Debug::Log("Tracker hasn't been initialized", Color::Red);
-        }
+        }  
     }
     DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
         if (to != nullptr) {
@@ -163,9 +163,9 @@ extern "C" {
     }
     DLL_EXPORT void StartSpatialMapping(int ChunkSizes) {
         if (to != nullptr) {
-            to->StartSpatialMapping(ChunkSizes);
+            to->StartSpatialMapping(ChunkSizes); 
         }
-    }
+    } 
     DLL_EXPORT void StopSpatialMapping(int ChunkSizes) {
         if (to != nullptr) {
             to->StopSpatialMapping();
@@ -198,14 +198,14 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
 {
     return OnRenderEvent;
 }
-void  Debug::Log(const int message, Color color) {
+void  Debug::Log(const int message, Color color) { 
     std::stringstream ss;
     ss << message;
     send_log(ss, color);
 } 
 
 void  Debug::Log(const char message, Color color) {
-    std::stringstream ss;
+    std::stringstream ss; 
     ss << message; 
     send_log(ss, color);
 }
@@ -221,7 +221,7 @@ void  Debug::Log(const double message, Color color) {
     ss << message;
     send_log(ss, color);
 }
-
+ 
 void Debug::Log(const bool message, Color color) {
     std::stringstream ss;
     if (message)
@@ -238,7 +238,7 @@ void Debug::send_log(const std::stringstream& ss, const Color& color) {
     if (callbackInstance != nullptr)
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
-
+  
 //Create a callback delegate 
 void RegisterDebugCallback(FuncCallBack cb) {
     callbackInstance = cb;
@@ -248,7 +248,7 @@ void RegisterLocalizationCallback(FuncCallBack2 cb) {
     to->callbackLocalization = cb;
 }
 void RegisterObjectPoseCallback(FuncCallBack4 cb) {
-    if (to != nullptr) { 
+    if (to != nullptr) {  
         to->callbackObjectPoseReceived = cb;
     }
 }

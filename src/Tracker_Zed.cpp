@@ -176,16 +176,19 @@ public:
             ctx->Release();
         }
     }
+    bool didLoadMap = false;
     void DoFunctionTracking() {
 
         //The outer loop (allows for device graceful restarts)
         while (!DoExit3) {
             try {
                 Camera zed;
+                didLoadMap = false;
+                bool doExportMap = false;
                 POSITIONAL_TRACKING_STATE tracking_state = POSITIONAL_TRACKING_STATE::OFF;
                 // Set configuration parameters
                 InitParameters init_params;
-                init_params.camera_resolution = RESOLUTION::VGA; // Use HD720 video mode (default fps: 60)
+                init_params.camera_resolution = RESOLUTION::HD720; // Use HD720 video mode (default fps: 60)
                 init_params.coordinate_system = COORDINATE_SYSTEM::LEFT_HANDED_Y_UP; // Use a right-handed Y-up coordinate system
                 init_params.coordinate_units = UNIT::METER; // Set units in meters
                 chrono::high_resolution_clock::time_point ts_last;
@@ -200,7 +203,9 @@ public:
                     Debug::Log(oss.str(), Color::Green);
                 }
                 PositionalTrackingParameters tracking_parameters;
+                tracking_parameters.enable_pose_smoothing = true;
                 if (file_exists("temp.raw.area")) {
+                    didLoadMap = true;
                     tracking_parameters.area_file_path = "temp.raw.area";
                 }
                 err = zed.enablePositionalTracking(tracking_parameters);
@@ -238,7 +243,17 @@ public:
                         }
                     }
                     if (zed.grab() == ERROR_CODE::SUCCESS) {
-                        zed.getPosition(zed_pose, REFERENCE_FRAME::WORLD);
+                        POSITIONAL_TRACKING_STATE state = zed.getPosition(zed_pose, REFERENCE_FRAME::WORLD);
+                        if (state != tracking_state) {
+                            tracking_state = state;
+                            switch (tracking_state) {
+                                case POSITIONAL_TRACKING_STATE::OK:
+                                    if (callbackLocalization != nullptr) {
+                                        callbackLocalization(1);
+                                    }
+                                break;
+                            }
+                        }
                         zedRequestSuccess = true;
                         sl::Translation zed_translation = zed_pose.getTranslation();
                         sl::Rotation zed_rotation = zed_pose.getRotation();
@@ -256,9 +271,9 @@ public:
                         pose[0] = zed_translation.x;
                         pose[1] = zed_translation.y;
                         pose[2] = zed_translation.z;
-                        pose[3] = zed_rotation.getOrientation().x;
-                        pose[4] = zed_rotation.getOrientation().y;
-                        pose[5] = zed_rotation.getOrientation().z;
+                        pose[3] = zed_rotation.getEulerAngles().x;
+                        pose[4] = zed_rotation.getEulerAngles().y;
+                        pose[5] = zed_rotation.getEulerAngles().z;
                         pose[6] = zed_rotation.getOrientation().w;
                     }
                     else { zedRequestSuccess = false; }
@@ -344,35 +359,9 @@ public:
                     posesToUpdate.clear();
                     //Do we need to grab the current local map?
                     if (shouldGrabMap) {
+                        doExportMap = true;
                         shouldGrabMap = false;                        
-                        try {
-                            Debug::Log("Saving Map");
-                            sl::ERROR_CODE ec = zed.saveAreaMap("temp.raw");
-                            if (ec == sl::ERROR_CODE::SUCCESS) {                                
-                                callbackBinaryMap(NULL, 0);
-                            }
-                            else {
-                                Debug::Log("Problem saving the map?", Color::Red);
-                                Debug::Log(sl::errorCode2str(ec), Color::Red);
-                            }
-                        }
-                        catch (const std::exception& ex) {
-                            // ...
-                            ostringstream oss;
-                            oss << "Map save failed" << ex.what() << std::endl;
-                            Debug::Log(oss.str(), Color::Red);
-                        }
-                        catch (const std::string& ex) {
-                            // ...
-                            ostringstream oss;
-                            oss << "Map save failed" << ex << std::endl;
-                            Debug::Log(oss.str(), Color::Red);
-                        }
-                        catch (...) {
-                            ostringstream oss;
-                            oss << "Map save failed: Unknown" << std::endl;
-                            Debug::Log(oss.str(), Color::Red);
-                        }
+                        shouldRestart = true;
                     }
                     //Do we need to load the map? if so exit all loops to allow the device to shutdown, setting the relevant flags
                     if (shouldLoadMap) {
@@ -385,10 +374,20 @@ public:
                     }
                 }
                 map.clear();
+
                 zed.disableSpatialMapping();
-                zed.disablePositionalTracking();
+                if (doExportMap) { 
+                    doExportMap = false;
+                    Debug::Log("Exporting map to temp.raw.area");
+                    zed.disablePositionalTracking("temp.raw.area");
+                    Debug::Log("Done, calling back");
+                    callbackBinaryMap(NULL, 0);
+                } 
+                else {
+                    zed.disablePositionalTracking();
+                }
                 zed.close();
-                Debug::Log("Stopped Tracker, will attempt to restart again");
+
             }
             catch (const std::exception& e)
             {
