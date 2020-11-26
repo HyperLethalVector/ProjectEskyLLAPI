@@ -151,10 +151,10 @@ extern "C" {
     DLL_EXPORT void HookDeviceToZed() {
         if (to != nullptr) {
             to->m_Device = m_Device; 
-        }
+        } 
         else {
-            Debug::Log("Tracker hasn't been initialized", Color::Red);
-        }  
+            Debug::Log("Tracker hasn't been initialized", Color::Red); 
+        }   
     }
     DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
         if (to != nullptr) {
@@ -190,7 +190,7 @@ void  Debug::Log(const std::string message, Color color) {
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID)  
 {
     if (to != nullptr) {
-        to->UpdatecameraTexture();
+        to->UpdatecameraTextureGPU();
     }
 }
 

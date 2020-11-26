@@ -162,7 +162,7 @@ public:
     bool mapping_activated = false;
     bool shouldUploadData = false;
     bool LockImage = false;
-    void UpdatecameraTexture() {
+    void UpdatecameraTextureGPU() {
 
         if (m_Device != nullptr) {
             ID3D11DeviceContext* ctx = NULL;
@@ -188,7 +188,8 @@ public:
                 POSITIONAL_TRACKING_STATE tracking_state = POSITIONAL_TRACKING_STATE::OFF;
                 // Set configuration parameters
                 InitParameters init_params;
-                init_params.camera_resolution = RESOLUTION::HD720; // Use HD720 video mode (default fps: 60)
+                init_params.camera_resolution = RESOLUTION::VGA; // Use HD720 video mode (default fps: 60)
+                init_params.camera_fps = 100;
                 init_params.coordinate_system = COORDINATE_SYSTEM::LEFT_HANDED_Y_UP; // Use a right-handed Y-up coordinate system
                 init_params.coordinate_units = UNIT::METER; // Set units in meters
                 chrono::high_resolution_clock::time_point ts_last;

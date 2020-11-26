@@ -1,19 +1,18 @@
 cmake_minimum_required(VERSION 3.7.2)
 
-# Proeject name - should not contain whitespace 
+#
 project(libProjectEskyLLAPI)
 
-#========== Global Configurations =============#
-#----------------------------------------------#
+#Global configs
 option(LINK_SHARED_ZED "Link with the ZED SDK shared executable" ON)
-
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT")
 if (NOT LINK_SHARED_ZED AND MSVC)
     message(FATAL_ERROR "LINK_SHARED_ZED OFF : ZED SDK static libraries not available on Windows")
 endif()
-# Set the C++ standard for all targets (It sets the flags
-# (-std=c++11, -std=c++14 ...) on Clang or GCC. and /std=c++17 on MSVC
-# OPTIONAL:
-#---------------------------------
+
+
+#Library finding
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
@@ -23,7 +22,7 @@ elseif(COMPILER_SUPPORTS_CXX0X)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 endif()
 set(CMAKE_VERBOSE_MAKEFILE ON)
-
+SET (CMAKE_EXE_LINKER_FLAGS "-static")
 if(WIN32)
     if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
         set(LIBRARY_DIR "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\lib\\x64")          # TODO: Update this variable to correct path - folder where realsense2.lib is found
@@ -39,12 +38,14 @@ FIND_PATH(DX_INCLUDE_PATH d3d11.h     PATHS     "$ENV{DXSDK_DIR}/Include" "C:/Pr
 find_library(D3D11_LIBRARY d3d11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3d11.lib resides")  
 find_library(D3DX11_LIBRARY d3dx11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3dx11.lib resides") 
 set (D3D11_FOUND "YES") 
+set(OpenCV_STATIC ON)
 set (D3D11_LIBRARIES ${D3D11_LIB}) 
 mark_as_advanced (D3D11_INCLUDE_PATH D3D11_LIB)  
-
 find_package(ZED 3)
 find_package(CUDA ${ZED_CUDA_VERSION} EXACT)
-
+set(OpenCV_DIR "c:/Libraries/opencv-4.5.0-built/install")
+find_package(OpenCV 4.5.0 REQUIRED PATHS "C:/Libraries/opencv-4.5.0-built/install")
+set(OpenCV_DIR "c:/Libraries/opencv-4.5.0-built/install")
 find_library(REALSENSE2_FOUND realsense2 HINTS ${LIBRARY_DIR} REQUIRED)
 if(NOT REALSENSE2_FOUND)
     SET(REALSENSE2_FOUND "realsense2")
@@ -52,25 +53,52 @@ if(NOT REALSENSE2_FOUND)
 endif()
 
 
-include_directories(${ADDITIONAL_INCLUDE_DIRS})
 
+# includes
+include_directories(${ADDITIONAL_INCLUDE_DIRS})
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${ZED_INCLUDE_DIRS})
-include_directories(./include)
-#========== Targets Configurations ============#
-    if (LINK_SHARED_ZED)
-        SET(ZED_LIBS ${ZED_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY})
-    else()
-        SET(ZED_LIBS ${ZED_STATIC_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_LIBRARY}) 
-    endif()
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+include_directories(./include/)
 
-add_library(libProjectEskyLLAPIIntel SHARED ./src/mainLibTrackingIncluded.cpp ./src/Tracker.cpp)
-add_library(libProjectEskyLLAPIZED SHARED ./src/mainLibTrackingIncludedZED.cpp ./src/Tracker_Zed.cpp ./src/UnityHooks.def)
-set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
+if (LINK_SHARED_ZED)
+    SET(ZED_LIBS ${ZED_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY})
+else()
+    SET(ZED_LIBS ${ZED_STATIC_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_LIBRARY}) 
+endif()
+
+
+
+
+
+#T265
+add_library(libProjectEskyLLAPIIntel SHARED 
+./src/Tracker/IntelT265/main.cpp 
+./src/Tracker/IntelT265/Tracker.cpp 
+./src/Tracker/IntelT265/Serial.cpp 
+./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
+
+#ZED
+add_library(libProjectEskyLLAPIZED SHARED 
+./src/Tracker/ZED/main.cpp 
+./src/Tracker/ZED/Tracker_Zed.cpp 
+./src/UnityHooks.def)
+set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
 set_target_properties(libProjectEskyLLAPIZED PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
-target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND})
-target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${ZED_LIBS}  ${D3D11_LIBRARY} ${D3DX11_LIBRARY})
+target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${ZED_LIBS}  ${D3D11_LIBRARY} ${D3DX11_LIBRARY} ${OpenCV_LIBS} "-static")
+
+#DirectX Renderer
+add_library(ProjectEskyLLAPIRenderer SHARED 
+./src/Renderer/DirectX/main.cpp 
+./src/Renderer/DirectX/graphics.cpp 
+./src/Renderer/DirectX/graphics.h
+)
+set_target_properties(ProjectEskyLLAPIRenderer PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+
+
 if(WIN32)
 message(STATUS "Adding Post build script to copy realsense2.dll to project's binary folder")
 message(STATUS "Will try to copy from ${DLL_DIR} to ${PROJECT_BINARY_OUTPUT_PATH}")
