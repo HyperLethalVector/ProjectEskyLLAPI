@@ -6,6 +6,7 @@
 #include <fstream>
 #include <vector>
 #include <iomanip>
+#include <opencv2/video/tracking.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -22,14 +23,23 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 #include "Serial.h"
+#define PI 3.141592653
+struct Quaternion {
+    double w, x, y, z;
+};
+
+struct EulerAngles {
+    double z, x, y;
+};
 class TrackerObject {
 public:
+    typedef void(*QuaternionCallback)(float* arrayToCopy, float quatx, float quaty, float quatz, float quatw);
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
     rs2_intrinsics intrinsics;
-
+    QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
     FuncCallBack2 callbackLocalization = nullptr;
     FuncCallBack3 callbackBinaryMap = nullptr;
@@ -54,11 +64,66 @@ public:
     bool usesIntegrator = false;
     map<string, rs2_pose> posesToUpdate;
     cv::Mat distCoeffsL;
-    cv::Mat intrinsicsL;
+    cv::Mat intrinsicsL; 
     bool hasReceivedCameraStream = false;
     char* com_port = "\\\\.\\COM5";
     DWORD COM_BAUD_RATE = CBR_9600;
-    SimpleSerial* Serial;
+    SimpleSerial* Serial; 
+
+    int nStates = 18;            // the number of states
+    int nMeasurements = 6;       // the number of measured states
+    int nInputs = 0;             // the number of action control
+    double dt = 0.005;           // time between measurements (1/FPS)
+    cv::KalmanFilter KF;         // instantiate Kalman Filter
+    Quaternion ToQuaternion(double yaw, double pitch, double roll) // yaw (Z), pitch (Y), roll (X)
+    {
+        // Abbreviations for the various angular functions
+        double cy = cos(yaw * 0.5);
+        double sy = sin(yaw * 0.5);
+        double cp = cos(pitch * 0.5);
+        double sp = sin(pitch * 0.5);
+        double cr = cos(roll * 0.5);
+        double sr = sin(roll * 0.5);
+        Quaternion q;
+        q.w = cr * cp * cy + sr * sp * sy;
+        q.x = sr * cp * cy - cr * sp * sy;
+        q.y = cr * sp * cy + sr * cp * sy;
+        q.z = cr * cp * sy - sr * sp * cy;
+        return q;
+    }
+    void ToEulerAngles(Quaternion q, EulerAngles& angles) {
+        double sqw = q.w * q.w;
+        double sqx = q.x * q.x;
+        double sqy = q.y * q.y;
+        double sqz = q.z * q.z;
+        double unit = sqx + sqy + sqz + sqw; // if normalised is one, otherwise is correction factor
+        double test = q.x * q.y + q.z * q.w;
+        double heading, attitude, bank;
+        if (test > 0.499 * unit) { // singularity at north pole
+            heading = 2 * atan2(q.x, q.w);
+            attitude = PI / 2;
+            bank = 0;
+            angles.y = heading;
+            angles.x = attitude;
+            angles.z = bank;
+            return;
+        }
+        if (test < -0.499 * unit) { // singularity at south pole
+            heading = -2 * atan2(q.x, q.w);
+            attitude = -PI / 2;
+            bank = 0;
+            angles.y = heading;
+            angles.x = attitude;
+            angles.z = bank;
+            return;
+        }
+        heading = atan2(2 * q.y * q.w - 2 * q.x * q.z, sqx - sqy - sqz + sqw);
+        attitude = asin(2 * test / unit);
+        bank = atan2(2 * q.x * q.w - 2 * q.y * q.z, -sqx + sqy - sqz + sqw);
+        angles.y = heading;
+        angles.x = attitude;
+        angles.z = bank;
+    }
     inline rs2_quaternion quaternion_exp(rs2_vector v)
     {
         float x = v.x / 2, y = v.y / 2, z = v.z / 2, th2, th = sqrtf(th2 = x * x + y * y + z * z);
@@ -99,7 +164,135 @@ public:
         };
         return Q;
     }
+    cv::Mat Quaternion2Matrix(cv::Mat q)
+    {
+        float w = q.at<float>(0);
+        float x = q.at<float>(1);
+        float y = q.at<float>(2);
+        float z = q.at<float>(3);
 
+        float xx = x * x;
+        float yy = y * y;
+        float zz = z * z;
+        float xy = x * y;
+        float wz = w * z;
+        float wy = w * y;
+        float xz = x * z;
+        float yz = y * z;
+        float wx = w * x;
+
+        float ret[4][4];
+        ret[0][0] = 1.0f - 2 * (yy + zz);
+        ret[0][1] = 2 * (xy - wz);
+        ret[0][2] = 2 * (wy + xz);
+        ret[0][3] = 0.0f;
+
+        ret[1][0] = 2 * (xy + wz);
+        ret[1][1] = 1.0f - 2 * (xx + zz);
+        ret[1][2] = 2 * (yz - wx);
+        ret[1][3] = 0.0f;
+
+        ret[2][0] = 2 * (xz - wy);
+        ret[2][1] = 2 * (yz + wx);
+        ret[2][2] = 1.0f - 2 * (xx + yy);
+        ret[2][3] = 0.0f;
+
+        ret[3][0] = 0.0f;
+        ret[3][1] = 0.0f;
+        ret[3][2] = 0.0f;
+        ret[3][3] = 1.0f;
+
+        return cv::Mat(4, 4, CV_32FC1, ret).clone();
+    }
+    void updateKalmanFilter( cv::KalmanFilter &KF, cv::Mat &measurement,
+        rs2_pose& predicted, EulerAngles& ea)
+    {
+        // First predict, to update the internal statePre variable
+        cv::Mat prediction = KF.predict();
+        // The "correct" phase that is going to use the predicted value and our measurement
+        cv::Mat estimated = KF.correct(measurement);
+        // Estimated translation
+        predicted.translation.x = estimated.at<double>(0);
+        predicted.translation.y = estimated.at<double>(1);
+        predicted.translation.z = estimated.at<double>(2);
+        // Estimated euler angles
+
+//        cv::Mat eulers_estimated(3, 1, CV_64F);
+        ea.z = estimated.at<double>(9) * (PI/180.0f);
+        ea.x = estimated.at<double>(10) * (PI / 180.0f);
+        ea.y = estimated.at<double>(11) * (PI / 180.0f);
+    }
+    void fillMeasurements(cv::Mat& measurements,
+        float transX,float transY, float transZ, float rotEurX,float rotEurY, float rotEurZ)
+    {
+        // Convert rotation matrix to euler angles
+        // Set measurement to predict
+        measurements.at<double>(0) = transX; // x
+        measurements.at<double>(1) = transY; // y
+        measurements.at<double>(2) = transZ; // z
+        measurements.at<double>(3) = rotEurZ;      // roll
+        measurements.at<double>(4) = rotEurX;      // pitch
+        measurements.at<double>(5) = rotEurY;      // yaw
+    }
+    void initKalmanFilter(cv::KalmanFilter& KF, int nStates, int nMeasurements, int nInputs, double dt)
+    {
+        KF.init(nStates, nMeasurements, nInputs, CV_64F);                 // init Kalman Filter
+        cv::setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));       // set process noise
+        cv::setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-4));   // set measurement noise
+        cv::setIdentity(KF.errorCovPost, cv::Scalar::all(1));             // error covariance
+                       /* DYNAMIC MODEL */
+        //  [1 0 0 dt  0  0 dt2   0   0 0 0 0  0  0  0   0   0   0]
+        //  [0 1 0  0 dt  0   0 dt2   0 0 0 0  0  0  0   0   0   0]
+        //  [0 0 1  0  0 dt   0   0 dt2 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  1  0  0  dt   0   0 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  1  0   0  dt   0 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  0  1   0   0  dt 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  0  0   1   0   0 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  0  0   0   1   0 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  0  0   0   0   1 0 0 0  0  0  0   0   0   0]
+        //  [0 0 0  0  0  0   0   0   0 1 0 0 dt  0  0 dt2   0   0]
+        //  [0 0 0  0  0  0   0   0   0 0 1 0  0 dt  0   0 dt2   0]
+        //  [0 0 0  0  0  0   0   0   0 0 0 1  0  0 dt   0   0 dt2]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  1  0  0  dt   0   0]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  1  0   0  dt   0]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  1   0   0  dt]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   1   0   0]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   0   1   0]
+        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   0   0   1]
+        // position
+        KF.transitionMatrix.at<double>(0, 3) = dt;
+        KF.transitionMatrix.at<double>(1, 4) = dt;
+        KF.transitionMatrix.at<double>(2, 5) = dt;
+        KF.transitionMatrix.at<double>(3, 6) = dt;
+        KF.transitionMatrix.at<double>(4, 7) = dt;
+        KF.transitionMatrix.at<double>(5, 8) = dt;
+        KF.transitionMatrix.at<double>(0, 6) = 0.5 * pow(dt, 2);
+        KF.transitionMatrix.at<double>(1, 7) = 0.5 * pow(dt, 2);
+        KF.transitionMatrix.at<double>(2, 8) = 0.5 * pow(dt, 2);
+        // orientation
+        KF.transitionMatrix.at<double>(9, 12) = dt;
+        KF.transitionMatrix.at<double>(10, 13) = dt;
+        KF.transitionMatrix.at<double>(11, 14) = dt;
+        KF.transitionMatrix.at<double>(12, 15) = dt;
+        KF.transitionMatrix.at<double>(13, 16) = dt;
+        KF.transitionMatrix.at<double>(14, 17) = dt;
+        KF.transitionMatrix.at<double>(9, 15) = 0.5 * pow(dt, 2);
+        KF.transitionMatrix.at<double>(10, 16) = 0.5 * pow(dt, 2);
+        KF.transitionMatrix.at<double>(11, 17) = 0.5 * pow(dt, 2);
+        /* MEASUREMENT MODEL */
+   //  [1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   //  [0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   //  [0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+   //  [0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0]
+   //  [0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0]
+   //  [0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0]
+        KF.measurementMatrix.at<double>(0, 0) = 1;  // x
+        KF.measurementMatrix.at<double>(1, 1) = 1;  // y
+        KF.measurementMatrix.at<double>(2, 2) = 1;  // z
+        KF.measurementMatrix.at<double>(3, 9) = 1;  // pitch
+        KF.measurementMatrix.at<double>(4, 10) = 1; // yaw
+        KF.measurementMatrix.at<double>(5, 11) = 1; // roll
+    }
     rs2_pose predict_pose(rs2_pose& pose, float dt_s)
     {
         rs2_pose P = pose;
@@ -246,15 +439,19 @@ public:
         }
         while (!DoExit3) {
             try {
+                float AngleToDeg = (3.14f / 180.0f);
+                initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
+                cv::Mat measurements(nMeasurements, 1, CV_64FC1); measurements.setTo(cv::Scalar(0));
                 hasReceivedCameraStream = false;
                 rs2::pipeline pipe;
                 rs2::config cfg;
                 rs2::pipeline_profile myProf;
+                Quaternion qq;
+                EulerAngles eu;
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,1);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,2);
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
-                
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
                         hasLocalized = true;
@@ -290,8 +487,6 @@ public:
                     }
                 } 
                 //Then let's initialize the sensor and begin tracking
-               
-
                 myProf = pipe.start(cfg, [&](rs2::frame frame) {
                     if (auto fs = frame.as<rs2::pose_frame>()) {
                         rs2::pose_frame pose_frame = frame.as<rs2::pose_frame>();
@@ -301,13 +496,26 @@ public:
                         double pose_time_ms = pose_frame.get_timestamp();
                         float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
                         rs2_pose predicted_pose = predict_pose(pose_data, dt_s);
+                        rs2_quaternion qt = predicted_pose.rotation;
+                        qq.x = predicted_pose.rotation.x;
+                        qq.y = predicted_pose.rotation.y;
+                        qq.z = predicted_pose.rotation.z;
+                        qq.w = predicted_pose.rotation.w; 
+                        ToEulerAngles(qq, eu);
+                        fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
+                        updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
                         pose[0] = predicted_pose.translation.x;
                         pose[1] = predicted_pose.translation.y;
                         pose[2] = predicted_pose.translation.z;
-                        pose[3] = predicted_pose.rotation.x;
-                        pose[4] = predicted_pose.rotation.y;
-                        pose[5] = predicted_pose.rotation.z;
-                        pose[6] = predicted_pose.rotation.w;
+                        if (std::abs(pose[3] - eu.x) > 180 || std::abs(pose[4] - eu.y) > 180 || std::abs(pose[5] - eu.z) > 180) {//we are jumping rotation poses, reset the kalman filter and use the raw measurements for this frame
+                            initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
+                            fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
+                            updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
+                        }
+                        pose[3] = eu.x;
+                        pose[4] = eu.y;
+                        pose[5] = eu.z;
+                        pose[6] = 1; 
                     }
                     if (auto fs = frame.as<rs2::frameset>()) {
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
@@ -358,7 +566,7 @@ public:
                         }
                     }
                     });
-
+                 
 
 
                 Debug::Log("Tracker started!", Color::Green);

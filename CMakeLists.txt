@@ -96,7 +96,7 @@ add_library(ProjectEskyLLAPIRenderer SHARED
 ./src/Renderer/DirectX/graphics.h
 )
 set_target_properties(ProjectEskyLLAPIRenderer PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
-target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
 
 
 if(WIN32)

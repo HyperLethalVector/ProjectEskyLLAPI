@@ -27,25 +27,25 @@
 
 //-------------------------------------------------------------------
  
-#define DLL_EXPORT __declspec(dllexport)
-#ifdef __cplusplus   
+#define DLL_EXPORT __declspec(dllexport) 
+#ifdef __cplusplus     
 extern "C" {
-
-#endif
-    bool doExit2 = false; 
-    TrackerObject* to; 
-    ID3D11Device* m_Device;
+     
+#endif   
+    bool doExit2 = false;  
+    TrackerObject* to;   
+    ID3D11Device* m_Device; 
     DLL_EXPORT void StopTrackers() {
         doExit2 = true; 
         if (to != nullptr) {
-            Debug::Log("Stopping Realsense Tracking");
+            Debug::Log("Stopping Realsense Tracking"); 
             to->DoExit3 = true; 
-            to->StopTracking();
+            to->StopTracking(); 
         }
-    } 
-    std::thread* t3;
+    }  
+    std::thread* t3;  
     void DoFunction3() {
-        to->DoFunctionTracking();
+        to->DoFunctionTracking(); 
         delete to;
         to = nullptr;
     }
@@ -116,14 +116,14 @@ extern "C" {
     static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType);
     extern "C" void	UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces * unityInterfaces)
     {
-        s_UnityInterfaces = unityInterfaces;
+        s_UnityInterfaces = unityInterfaces; 
         s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
         s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);
+        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize); 
     }
-
-    extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
-    {
+     
+    extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
+    { 
         s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
     }
 
@@ -143,28 +143,34 @@ extern "C" {
         if (eventType == kUnityGfxDeviceEventInitialize)
         {
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-            m_Device = d3d->GetDevice();
-            Debug::Log("Obtained tracker d3d device");
-        } 
+            m_Device = d3d->GetDevice(); 
+            Debug::Log("Obtained tracker d3d device");   
+        }   
         else if (eventType == kUnityGfxDeviceEventShutdown) {
-        }
+        }   
     }
-    typedef void(*FuncCallBack)(const char* message, int color, int size);
+    typedef void(*FuncCallBack)(const char* message, int color, int size); 
     static FuncCallBack callbackInstance = nullptr; 
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
-    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);  
+    typedef void(*QuaternionCallback)(float* arrayToCopy, float quatx, float quaty, float quatz, float quatw);
+    DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) {
+        if (to != nullptr) {
+            to->quaternionCallback = qc;
+        }
+    }
+    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);   
     DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);
     DLL_EXPORT void RegisterBinaryMapCallback(FuncCallBack3 cb);
-    DLL_EXPORT void RegisterObjectPoseCallback(FuncCallBack4 cb);
+    DLL_EXPORT void RegisterObjectPoseCallback(FuncCallBack4 cb); 
     DLL_EXPORT void SaveOriginPose() { 
-        to->SetOrigin();   
+        to->SetOrigin();    
     }
     DLL_EXPORT void SetSerialComPort(int port) {
         if (to != nullptr) {
             to->usesIntegrator = true;
-            to->SetComPortString(port);
+            to->SetComPortString(port); 
         }
     }
     DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
@@ -225,7 +231,7 @@ void Debug::Log(const bool message, Color color) {
     if (message)
         ss << "true"; 
     else
-        ss << "false"; 
+        ss << "false";  
     send_log(ss, color);
 }
 
@@ -253,3 +259,4 @@ void RegisterBinaryMapCallback(FuncCallBack3 cb) {
     if (to != nullptr)
         to->callbackBinaryMap = cb;
 }
+ 
