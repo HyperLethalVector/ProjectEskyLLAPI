@@ -92,6 +92,7 @@ target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${ZED_LIBS}  ${D3D1
 #DirectX Renderer
 add_library(ProjectEskyLLAPIRenderer SHARED 
 ./src/Renderer/DirectX/main.cpp 
+./src/Renderer/DirectX/Stabilizer.hpp
 ./src/Renderer/DirectX/graphics.cpp 
 ./src/Renderer/DirectX/graphics.h
 )

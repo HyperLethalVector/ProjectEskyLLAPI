@@ -41,21 +41,21 @@ extern "C" {
             Debug::Log("Stopping Realsense Tracking"); 
             to->DoExit3 = true; 
             to->StopTracking(); 
-        }
-    }  
-    std::thread* t3;  
-    void DoFunction3() {
-        to->DoFunctionTracking(); 
-        delete to;
-        to = nullptr;
+        }   
+    }    
+    std::thread* t3;    
+    void DoFunction3() {     
+        to->DoFunctionTracking();   
+        delete to; 
+        to = nullptr; 
     }
 
-    void DoFunction4() {
-        //toz->DoFunctionTracking();
+    void DoFunction4() { 
+        //toz->DoFunctionTracking();  
 //        toz->~ZedTrackerObject();
     }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
-        Debug::Log("Started Tracking Thread");
+        Debug::Log("Started Tracking Thread"); 
         to->DoExit3 = false;
         t3 = new std::thread(DoFunction3);
     }
@@ -148,17 +148,17 @@ extern "C" {
         }   
         else if (eventType == kUnityGfxDeviceEventShutdown) {
         }   
-    }
+    } 
     typedef void(*FuncCallBack)(const char* message, int color, int size); 
-    static FuncCallBack callbackInstance = nullptr; 
+    static FuncCallBack callbackInstance = nullptr;  
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
-    typedef void(*QuaternionCallback)(float* arrayToCopy, float quatx, float quaty, float quatz, float quatw);
+    typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
     DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) {
-        if (to != nullptr) {
-            to->quaternionCallback = qc;
-        }
+        if (to != nullptr) { 
+            to->quaternionCallback = qc;   
+        } 
     }
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);   
     DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);

@@ -33,7 +33,7 @@ struct EulerAngles {
 };
 class TrackerObject {
 public:
-    typedef void(*QuaternionCallback)(float* arrayToCopy, float quatx, float quaty, float quatz, float quatw);
+    typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
@@ -75,8 +75,12 @@ public:
     int nInputs = 0;             // the number of action control
     double dt = 0.005;           // time between measurements (1/FPS)
     cv::KalmanFilter KF;         // instantiate Kalman Filter
-    Quaternion ToQuaternion(double yaw, double pitch, double roll) // yaw (Z), pitch (Y), roll (X)
+    Quaternion ToQuaternion(double y, double p, double r) // yaw (Z), pitch (Y), roll (X)
     {
+        double yaw = y * (PI / 180.0f);
+        double pitch = p * (PI / 180.0f);
+        double roll = r * (PI / 180.0f);
+
         // Abbreviations for the various angular functions
         double cy = cos(yaw * 0.5);
         double sy = sin(yaw * 0.5);
@@ -103,26 +107,26 @@ public:
             heading = 2 * atan2(q.x, q.w);
             attitude = PI / 2;
             bank = 0;
-            angles.y = heading;
-            angles.x = attitude;
-            angles.z = bank;
+            angles.y = heading * (180.0f / PI);
+            angles.x = attitude * (180.0f / PI);
+            angles.z = bank * (180.0f / PI);
             return;
         }
         if (test < -0.499 * unit) { // singularity at south pole
             heading = -2 * atan2(q.x, q.w);
             attitude = -PI / 2;
             bank = 0;
-            angles.y = heading;
-            angles.x = attitude;
-            angles.z = bank;
+            angles.y = heading * (180.0f / PI);
+            angles.x = attitude * (180.0f / PI);
+            angles.z = bank * (180.0f / PI);
             return;
         }
         heading = atan2(2 * q.y * q.w - 2 * q.x * q.z, sqx - sqy - sqz + sqw);
         attitude = asin(2 * test / unit);
         bank = atan2(2 * q.x * q.w - 2 * q.y * q.z, -sqx + sqy - sqz + sqw);
-        angles.y = heading;
-        angles.x = attitude;
-        angles.z = bank;
+        angles.y = heading * (180.0f / PI);
+        angles.x = attitude * (180.0f / PI);
+        angles.z = bank * (180.0f / PI);
     }
     inline rs2_quaternion quaternion_exp(rs2_vector v)
     {
@@ -218,9 +222,9 @@ public:
         // Estimated euler angles
 
 //        cv::Mat eulers_estimated(3, 1, CV_64F);
-        ea.z = estimated.at<double>(9) * (PI/180.0f);
-        ea.x = estimated.at<double>(10) * (PI / 180.0f);
-        ea.y = estimated.at<double>(11) * (PI / 180.0f);
+        ea.z = estimated.at<double>(9);
+        ea.x = estimated.at<double>(10);
+        ea.y = estimated.at<double>(11);
     }
     void fillMeasurements(cv::Mat& measurements,
         float transX,float transY, float transZ, float rotEurX,float rotEurY, float rotEurZ)
@@ -286,12 +290,12 @@ public:
    //  [0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0]
    //  [0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0]
    //  [0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0]
-        KF.measurementMatrix.at<double>(0, 0) = 1;  // x
-        KF.measurementMatrix.at<double>(1, 1) = 1;  // y
-        KF.measurementMatrix.at<double>(2, 2) = 1;  // z
-        KF.measurementMatrix.at<double>(3, 9) = 1;  // pitch
-        KF.measurementMatrix.at<double>(4, 10) = 1; // yaw
-        KF.measurementMatrix.at<double>(5, 11) = 1; // roll
+        KF.measurementMatrix.at<double>(0, 0) = 1;  // tx
+        KF.measurementMatrix.at<double>(1, 1) = 1;  // ty
+        KF.measurementMatrix.at<double>(2, 2) = 1;  // tz
+        KF.measurementMatrix.at<double>(3, 9) = 1;  // rx
+        KF.measurementMatrix.at<double>(4, 10) = 1; // ry
+        KF.measurementMatrix.at<double>(5, 11) = 1; // rz
     }
     rs2_pose predict_pose(rs2_pose& pose, float dt_s)
     {
@@ -440,6 +444,7 @@ public:
         while (!DoExit3) {
             try {
                 float AngleToDeg = (3.14f / 180.0f);
+                float* f = new float[] {0.0f, 0.0f, 0.0f, 0.0f};
                 initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
                 cv::Mat measurements(nMeasurements, 1, CV_64FC1); measurements.setTo(cv::Scalar(0));
                 hasReceivedCameraStream = false;
@@ -494,29 +499,39 @@ public:
                         auto now = std::chrono::system_clock::now().time_since_epoch();
                         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
                         double pose_time_ms = pose_frame.get_timestamp();
-                        float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
+                        float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0)); 
                         rs2_pose predicted_pose = predict_pose(pose_data, dt_s);
-                        rs2_quaternion qt = predicted_pose.rotation;
+                        rs2_quaternion qt = predicted_pose.rotation; 
                         qq.x = predicted_pose.rotation.x;
-                        qq.y = predicted_pose.rotation.y;
-                        qq.z = predicted_pose.rotation.z;
-                        qq.w = predicted_pose.rotation.w; 
+                        qq.y = predicted_pose.rotation.y; 
+                        qq.z = predicted_pose.rotation.z;  
+                        qq.w = predicted_pose.rotation.w;  
+                        EulerAngles EulerPre = eu;
+                        EulerPre.x = eu.x;
+                        EulerPre.y = eu.y;
+                        EulerPre.z = eu.z;
                         ToEulerAngles(qq, eu);
                         fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
                         updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
                         pose[0] = predicted_pose.translation.x;
                         pose[1] = predicted_pose.translation.y;
                         pose[2] = predicted_pose.translation.z;
-                        if (std::abs(pose[3] - eu.x) > 180 || std::abs(pose[4] - eu.y) > 180 || std::abs(pose[5] - eu.z) > 180) {//we are jumping rotation poses, reset the kalman filter and use the raw measurements for this frame
+                        if (std::abs(EulerPre.x - eu.x) > 90 || std::abs(EulerPre.y - eu.y) > 90 || std::abs(EulerPre.z - eu.z) > 90) {//we are jumping rotation poses, reset the kalman filter and use the raw measurements for this frame
+                            Debug::Log("Jumping Pose");
                             initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
+                            measurements.setTo(cv::Scalar(0));
+                            ToEulerAngles(qq, eu);  
                             fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
                             updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
+                        }  
+                        if (quaternionCallback != nullptr) {
+                            quaternionCallback(f,eu.x, eu.y, eu.z);
                         }
-                        pose[3] = eu.x;
-                        pose[4] = eu.y;
-                        pose[5] = eu.z;
-                        pose[6] = 1; 
-                    }
+                        pose[3] = f[0];
+                        pose[4] = f[1];
+                        pose[5] = f[2];  
+                        pose[6] = f[3]; 
+                    }  
                     if (auto fs = frame.as<rs2::frameset>()) {
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
                         const int w = video_frame.get_width();
