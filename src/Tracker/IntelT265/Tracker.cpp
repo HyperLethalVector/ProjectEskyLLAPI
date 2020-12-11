@@ -80,10 +80,10 @@ public:
     cv::Mat distCoeffsL;
     cv::Mat intrinsicsL; 
     bool hasReceivedCameraStream = false;
-#ifdef __linux__
-    SerialPort serial;
-#else
     char* com_port = "\\\\.\\COM5";
+#ifdef __linux__
+#else
+
     DWORD COM_BAUD_RATE = CBR_9600;
     SimpleSerial* Serial; 
 #endif
@@ -732,9 +732,14 @@ public:
             }
 
         }
+#ifdef __linux__
+
+#else
+
         if (usesIntegrator) {
             Serial->CloseSerialPort();
         }
+#endif
         Debug::Log("Closed Tracker!",Color::Green);   
     }
 };
