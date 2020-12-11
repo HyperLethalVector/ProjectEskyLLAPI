@@ -1,7 +1,9 @@
 // Header files of frequent usage
 #pragma once
+#ifdef __linux
+#else
 #include <windows.h>
-
+#endif
 #include <algorithm>
 #include <cmath>
 #include <cstring>
