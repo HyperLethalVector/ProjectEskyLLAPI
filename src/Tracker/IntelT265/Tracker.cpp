@@ -464,7 +464,7 @@ public:
     void DoFunctionTracking() {
         if (usesIntegrator) {
 #ifdef __linux__
-            SerialPort serialPort("/dev/ttyACM0", BaudRate::B_9600);
+            SerialPort serialPort(com_port, BaudRate::B_9600);
             serialPort.SetTimeout(-1); // Block when reading until any data is received
             serialPort.Open();
             serialPort.Write("r\r\n");
