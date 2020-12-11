@@ -20,12 +20,12 @@
 #include <sys/ioctl.h> // Used for TCGETS2, which is required for custom baud rates
 #include <cassert>
 // #include <asm/termios.h> // Terminal control definitions (struct termios)
-#include <asm/ioctls.h>
+#include <asm/ioctls.h> 
 #include <asm/termbits.h>
 
 // User includes
-#include "CppLinuxSerial/Exception.hpp"
-#include "CppLinuxSerial/SerialPort.hpp"
+#include "LinuxSerialException.hpp"
+#include "LinuxSerialPort.hpp"
 
 #define    BOTHER 0010000
 
