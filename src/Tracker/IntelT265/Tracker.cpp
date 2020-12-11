@@ -14,15 +14,25 @@
 #include <stack>
 #include <float.h>
 #include <opencv2/core/directx.hpp>
-#include <d3d11.h>
-#include "common_header.h"
+#ifdef __linux__ //OGL
+
+#else
+#include <d3d11.h> //DX
 #include "IUnityGraphicsD3D11.h"
+#endif
+#include "common_header.h"
+
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
-#include "Serial.h"
+#ifdef __linux__
+    #include <SerialPort.hpp>
+    using namespace mn::CppLinuxSerial;
+#else
+    #include "Serial.h"
+#endif
 #define PI 3.141592653
 struct Quaternion {
     double w, x, y, z;
@@ -44,8 +54,12 @@ public:
     FuncCallBack2 callbackLocalization = nullptr;
     FuncCallBack3 callbackBinaryMap = nullptr;
     FuncCallBack4 callbackObjectPoseReceived = nullptr;
+#ifdef __linux__ //OGL
+
+#else
     ID3D11Device* m_Device;
     ID3D11Texture2D* d3dtex;
+#endif
     bool LockImage = false;
     float* pose = new float[] {0, 0, 0, 0, 0, 0, 0};
     float* poseFromWorldToMap = new float[] {0, 0, 0, 0, 0, 0, 0};
@@ -66,10 +80,13 @@ public:
     cv::Mat distCoeffsL;
     cv::Mat intrinsicsL; 
     bool hasReceivedCameraStream = false;
+#ifdef __linux__
+    SerialPort serial;
+#else
     char* com_port = "\\\\.\\COM5";
     DWORD COM_BAUD_RATE = CBR_9600;
     SimpleSerial* Serial; 
-
+#endif
     int nStates = 18;            // the number of states
     int nMeasurements = 6;       // the number of measured states
     int nInputs = 0;             // the number of action control
@@ -244,25 +261,6 @@ public:
         cv::setIdentity(KF.processNoiseCov, cv::Scalar::all(1e-5));       // set process noise
         cv::setIdentity(KF.measurementNoiseCov, cv::Scalar::all(1e-4));   // set measurement noise
         cv::setIdentity(KF.errorCovPost, cv::Scalar::all(1));             // error covariance
-                       /* DYNAMIC MODEL */
-        //  [1 0 0 dt  0  0 dt2   0   0 0 0 0  0  0  0   0   0   0]
-        //  [0 1 0  0 dt  0   0 dt2   0 0 0 0  0  0  0   0   0   0]
-        //  [0 0 1  0  0 dt   0   0 dt2 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  1  0  0  dt   0   0 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  1  0   0  dt   0 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  0  1   0   0  dt 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  0  0   1   0   0 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  0  0   0   1   0 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  0  0   0   0   1 0 0 0  0  0  0   0   0   0]
-        //  [0 0 0  0  0  0   0   0   0 1 0 0 dt  0  0 dt2   0   0]
-        //  [0 0 0  0  0  0   0   0   0 0 1 0  0 dt  0   0 dt2   0]
-        //  [0 0 0  0  0  0   0   0   0 0 0 1  0  0 dt   0   0 dt2]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  1  0  0  dt   0   0]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  1  0   0  dt   0]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  1   0   0  dt]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   1   0   0]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   0   1   0]
-        //  [0 0 0  0  0  0   0   0   0 0 0 0  0  0  0   0   0   1]
         // position
         KF.transitionMatrix.at<double>(0, 3) = dt;
         KF.transitionMatrix.at<double>(1, 4) = dt;
@@ -283,13 +281,6 @@ public:
         KF.transitionMatrix.at<double>(9, 15) = 0.5 * pow(dt, 2);
         KF.transitionMatrix.at<double>(10, 16) = 0.5 * pow(dt, 2);
         KF.transitionMatrix.at<double>(11, 17) = 0.5 * pow(dt, 2);
-        /* MEASUREMENT MODEL */
-   //  [1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-   //  [0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-   //  [0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-   //  [0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0]
-   //  [0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0]
-   //  [0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0]
         KF.measurementMatrix.at<double>(0, 0) = 1;  // tx
         KF.measurementMatrix.at<double>(1, 1) = 1;  // ty
         KF.measurementMatrix.at<double>(2, 2) = 1;  // tz
@@ -321,7 +312,9 @@ public:
         file.write((char*)bytes.data(), bytes.size());
     }
     void UpdatecameraTextureGPU() {
+#ifdef __linux__ //OGL
 
+#else
         if (m_Device != nullptr) {
             if (hasReceivedCameraStream) {
                 ID3D11DeviceContext* ctx = NULL;
@@ -334,6 +327,7 @@ public:
                 ctx->Release();
             }
         }
+#endif
     }
     // Create a configuration for configuring the pipeline with a non default profile
 
@@ -379,7 +373,11 @@ public:
 
     }
     void SetTexturePointer(void* textureHandle) {
+#ifdef __linux__ //OGL
+
+#else //DX
         d3dtex = (ID3D11Texture2D*)textureHandle;
+#endif
     }
     void GrabMap() {
         if (callbackBinaryMap != nullptr) {
@@ -402,6 +400,35 @@ public:
     }
     void SetComPortString(int port) {
         switch (port) {
+#ifdef __linux__
+        case 0:
+            com_port = "/dev/ttyACM0";
+            break;
+        case 1:
+            com_port = "/dev/ttyACM1";
+            break;
+        case 2:
+            com_port = "/dev/ttyACM2";
+            break;
+        case 3:
+            com_port = "/dev/ttyACM3";
+            break;
+        case 4:
+            com_port = "/dev/ttyACM4";
+            break;
+        case 5:
+            com_port = "/dev/ttyACM5";
+            break;
+        case 6:
+            com_port = "/dev/ttyACM6";
+            break;
+        case 7:
+            com_port = "/dev/ttyACM7";
+            break;
+        case 8:
+            com_port = "/dev/ttyACM8";
+            break;
+#else
         case 0:
             com_port = "\\\\.\\COM0";
             break;
@@ -429,17 +456,26 @@ public:
         case 8:
             com_port = "\\\\.\\COM8";
             break;
+#endif
         }
 
     }
     bool shouldUploadData = false;
     void DoFunctionTracking() {
         if (usesIntegrator) {
+#ifdef __linux__
+            SerialPort serialPort("/dev/ttyACM0", BaudRate::B_9600);
+            serialPort.SetTimeout(-1); // Block when reading until any data is received
+            serialPort.Open();
+            serialPort.Write("r\r\n");
+            serialPort.Close();
+#else
             Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
             if (Serial->WriteSerialPort("r\r\n")) {
                 Debug::Log("Restarted the t265/1",Color::Green);  
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
+#endif
         }
         while (!DoExit3) {
             try {
@@ -662,9 +698,19 @@ public:
                 }
                 pipe.stop(); 
                 if (usesIntegrator) {
-                    if (Serial->WriteSerialPort("r")) {
-                        Debug::Log("Restarted the t265/1",Color::Green);
-                    }
+                    #ifdef __linux__
+                                        SerialPort serialPort(com_port, BaudRate::B_9600);
+                                        serialPort.SetTimeout(-1); // Block when reading until any data is received
+                                        serialPort.Open();
+                                        serialPort.Write("r\r\n");
+                                        serialPort.Close();
+                    #else
+                                        Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
+                                        if (Serial->WriteSerialPort("r\r\n")) {
+                                            Debug::Log("Restarted the t265/1", Color::Green);
+                                            std::this_thread::sleep_for(std::chrono::seconds(1));
+                                        }
+                    #endif
                 }
                 if (DoExit3) {
                     break;
