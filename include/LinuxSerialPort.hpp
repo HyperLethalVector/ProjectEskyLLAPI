@@ -22,7 +22,7 @@
 #include <asm/termbits.h>
 
 // User headers
-#include "Exception.hpp"
+#include "LinuxSerialException.hpp"
 
 namespace mn {
     namespace CppLinuxSerial {
