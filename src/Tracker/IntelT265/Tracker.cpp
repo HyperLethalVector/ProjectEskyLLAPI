@@ -61,8 +61,8 @@ public:
     ID3D11Texture2D* d3dtex;
 #endif
     bool LockImage = false;
-    float* pose = new float[] {0, 0, 0, 0, 0, 0, 0};
-    float* poseFromWorldToMap = new float[] {0, 0, 0, 0, 0, 0, 0};
+    float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
+    float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
     //get intrinsics as float array
     // the fisheye mat
     cv::Mat fisheye_mat;
@@ -480,7 +480,7 @@ public:
         while (!DoExit3) {
             try {
                 float AngleToDeg = (3.14f / 180.0f);
-                float* f = new float[] {0.0f, 0.0f, 0.0f, 0.0f};
+                float* f = new float[4] {0.0f, 0.0f, 0.0f, 0.0f};
                 initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
                 cv::Mat measurements(nMeasurements, 1, CV_64FC1); measurements.setTo(cv::Scalar(0));
                 hasReceivedCameraStream = false;
