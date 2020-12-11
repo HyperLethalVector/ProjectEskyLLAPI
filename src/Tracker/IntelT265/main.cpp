@@ -17,7 +17,10 @@
 #include <math.h>
 #include <float.h>
 #include "Tracker.cpp"
+#ifdef __linux__
+#else
 #include <d3d11.h>
+#endif
 #define STB_IMAGE_IMPLEMENTATION
 
 
@@ -34,7 +37,10 @@ extern "C" {
 #endif   
     bool doExit2 = false;  
     TrackerObject* to;   
+#ifdef __linux
+#else
     ID3D11Device* m_Device; 
+#endif
     DLL_EXPORT void StopTrackers() {
         doExit2 = true; 
         if (to != nullptr) {
@@ -104,7 +110,10 @@ extern "C" {
     }
     DLL_EXPORT void HookDeviceToIntel() {
         if (to != nullptr) {
+#ifdef __linux
+#else
             to->m_Device = m_Device;
+#endif
         } 
         else {
             Debug::Log("Tracker hasn't been initialized", Color::Red);
@@ -142,9 +151,12 @@ extern "C" {
         // Create graphics API implementation upon initialization
         if (eventType == kUnityGfxDeviceEventInitialize)
         {
+#ifdef __linux
+#else
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             m_Device = d3d->GetDevice(); 
             Debug::Log("Obtained tracker d3d device");   
+#endif
         }   
         else if (eventType == kUnityGfxDeviceEventShutdown) {
         }   
