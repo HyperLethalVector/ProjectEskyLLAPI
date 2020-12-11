@@ -20,8 +20,8 @@
 #ifdef __linux__
 #else
 #include <d3d11.h>
-#endif
 #define STB_IMAGE_IMPLEMENTATION
+#endif
 
 
 
@@ -30,7 +30,11 @@
 
 //-------------------------------------------------------------------
  
+#ifdef __linux__
+#define DLL_EXPORT 
+#else
 #define DLL_EXPORT __declspec(dllexport) 
+#endif
 #ifdef __cplusplus     
 extern "C" {
      
