@@ -57,9 +57,7 @@ int Graphics::sampleCount = 1;
 int Graphics::descQuality = 0;
 void Graphics::InitD3D(HWND hWnd) {
 	DXGI_SWAP_CHAIN_DESC scd;
-
 	ZeroMemory(&scd, sizeof(DXGI_SWAP_CHAIN_DESC));
-
 	scd.BufferCount = 1;
 	scd.BufferDesc.Format = colorFormat;
 	scd.BufferDesc.Width = width;
@@ -92,19 +90,31 @@ void Graphics::RenderFrame() {
 	if (pExternalTextureRight) {
 		unityDevCon->CopyResource(pProxyTextureRight, pExternalTextureRight);
 	}
-
-/*	FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-*	devcon->ClearRenderTargetView(backbuffer, color);
-*	UINT stride = sizeof(VERTEX);
-*	UINT offset = 0;*
-*	devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
-*	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-*	devcon->Draw(4, 0);
-	swapchain->Present(0, 0);*/
 }
 void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	graphicsRender = true;
 	while (graphicsRender) {
+		if (updateAffineOnGraphicsThread) {
+			updateAffineOnGraphicsThread = false;
+/*			if (g_pConstantBuffer11) {
+				D3D11_MAPPED_SUBRESOURCE mappedResource;
+				devcon->Map(g_pConstantBuffer11, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				ShaderVals* dataPtr = (ShaderVals*)mappedResource.pData;
+/*				dataPtr->affineTransform.m[0][0] = deltaAffineIn[0];
+				dataPtr->affineTransform.m[1][0] = deltaAffineIn[1];
+				dataPtr->affineTransform.m[2][0] = deltaAffineIn[2];
+				dataPtr->affineTransform.m[0][1] = deltaAffineIn[3];
+				dataPtr->affineTransform.m[1][1] = deltaAffineIn[4];
+				dataPtr->affineTransform.m[2][1] = deltaAffineIn[5];
+				dataPtr->affineTransform.m[0][2] = 0.0;
+				dataPtr->affineTransform.m[1][2] = 0.0;
+				dataPtr->affineTransform.m[2][2] = 1.0;
+				devcon->Unmap(g_pConstantBuffer11, 0);
+				devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
+				devcon->PSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
+			}*/ 
+		}
+
 		FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		devcon->ClearRenderTargetView(backbuffer, color);
 		UINT stride = sizeof(VERTEX);
@@ -119,6 +129,7 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 		else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(8));
 		}
+
 	}
 
 } 

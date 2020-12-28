@@ -35,9 +35,13 @@ typedef struct ShaderVals {//float is 4 bytes
 	DirectX::XMFLOAT4 eyeBordersRight;
 	DirectX::XMFLOAT4 offsets;
 }ShaderVals;
+typedef struct ShaderVals2 {
+	DirectX::XMFLOAT3X3 affineTransform;
+};
 class Graphics {
 private:
-
+	double* deltaAffineIn = new double[6]{ 1,0,0,
+								 0,1,0 };
 	IDXGISwapChain *swapchain;
 	ID3D11Device *dev;
 
@@ -62,8 +66,8 @@ private:
 	int bufferWidth = 0;
 	int bufferHeight = 0;
 	bool wmCloseFromUnity = false;
-	//std::wstring registeredClassName;
 public:
+
 	bool threadStarted = false;
 	bool hasNewFrame = false;
 	bool doesExit = false;
@@ -74,6 +78,7 @@ public:
 	static int sampleCount; 
 	static int descQuality;
 	bool doRender = false;
+	bool updateAffineOnGraphicsThread = false;
 	bool graphicsRender = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
@@ -94,6 +99,12 @@ public:
 
 		}
 	}
+	void SetAffine(double* inputAffine) {
+		for (int i = 0; i < 6; i++) {
+			deltaAffineIn[i] = inputAffine[i];
+		}
+		updateAffineOnGraphicsThread = true;
+	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };
 		float rightUvToRectX[],// = { 0.0 };
@@ -104,6 +115,7 @@ public:
 		float rightOffset[],// = { 0.0 };
 		float eyeBorders[]) {
 		ShaderVals myShaderVals;
+		ShaderVals2 myShaderVals2;
 		myShaderVals.eyeBordersLeft.x = eyeBorders[0];myShaderVals.eyeBordersLeft.y = eyeBorders[1];myShaderVals.eyeBordersLeft.z = eyeBorders[2];myShaderVals.eyeBordersLeft.w = eyeBorders[3];
 		myShaderVals.eyeBordersRight.x = eyeBorders[4];myShaderVals.eyeBordersRight.y = eyeBorders[5];myShaderVals.eyeBordersRight.z = eyeBorders[6];myShaderVals.eyeBordersRight.w = eyeBorders[7];
 		myShaderVals.offsets.x = leftOffset[0]; myShaderVals.offsets.y = leftOffset[1]; myShaderVals.offsets.z = rightOffset[0]; myShaderVals.offsets.w = rightOffset[1];
@@ -117,6 +129,18 @@ public:
 				myShaderVals.cameraMatrixRight.m[x][y] = CameraMatrixRight[y * 4 + x];
 			}
 		}
+		myShaderVals2.affineTransform.m[0][0] = 1.0;
+		myShaderVals2.affineTransform.m[1][0] = 0.0;
+		myShaderVals2.affineTransform.m[2][0] = 0.0;
+
+		myShaderVals2.affineTransform.m[0][1] = 0.0;
+		myShaderVals2.affineTransform.m[1][1] = 1.0;
+		myShaderVals2.affineTransform.m[2][1] = 0.0;
+
+		myShaderVals2.affineTransform.m[0][2] = 0.0;
+		myShaderVals2.affineTransform.m[1][2] = 0.0;
+		myShaderVals2.affineTransform.m[2][2] = 1.0;
+
 		if (g_pConstantBuffer11) {
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
 			devcon->Map(g_pConstantBuffer11, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -133,10 +157,11 @@ public:
 			devcon->Unmap(g_pConstantBuffer11, 0);
 			devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
 			devcon->PSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
+
+
+			////			dataPtr->affineTransform = myShaderVals.affineTransform;
 		}
 	}
-	//void SetRegistredClass(std::wstring registeredClassName) { this->registeredClassName = registeredClassName; }
-	//std::wstring GetRegistredClass() { return registeredClassName; }
 private:
 	void SetViewport(int width, int height);
 	void SetBufferRenderTargets();

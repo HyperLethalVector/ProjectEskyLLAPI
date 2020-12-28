@@ -5,7 +5,7 @@
 #include <thread>
 #include <iostream>
 #define STB_IMAGE_IMPLEMENTATION 
-#include "stb_image.h"
+#include "stb_image.h"  
 #include <array>   
 #include <cmath>  
 #include <iostream>
@@ -52,7 +52,7 @@ extern "C" {
             to->DoExit3 = true; 
             to->StopTracking(); 
         }   
-    }    
+    }     
     std::thread* t3;    
     void DoFunction3() {     
         to->DoFunctionTracking();   
@@ -61,8 +61,6 @@ extern "C" {
     }
 
     void DoFunction4() { 
-        //toz->DoFunctionTracking();   
-//        toz->~ZedTrackerObject(); 
     }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
         Debug::Log("Started Tracking Thread");  
@@ -77,6 +75,10 @@ extern "C" {
     DLL_EXPORT float* GetLatestPose() {    
         return to->pose;  
     } 
+    DLL_EXPORT double* GetLatestAffine() {
+        return to->deltaAffineOut;
+    }
+
     DLL_EXPORT double* GetLatestAffineTransform() {
         return to->deltaAffineOut;
     } 
@@ -174,19 +176,19 @@ extern "C" {
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
-    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData, int length);
+    typedef void(*FuncAffinePoseUpdateCallback)(double* poseData, int length);
     DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) { 
         if (to != nullptr) {   
             to->quaternionCallback = qc;   
         }  
     }
     DLL_EXPORT void RegisterDeltaAffineCallback(FuncAffinePoseUpdateCallback fdpuc) {
-        if (to != nullptr) {  
+        if (to != nullptr) {   
             to->callbackAffinePoseUpdate = fdpuc;
         } 
     } 
     DLL_EXPORT void PostRenderReset() { 
-        if (to != nullptr) { 
+        if (to != nullptr) {
             to->ResetInitialPose(); 
         }
     }

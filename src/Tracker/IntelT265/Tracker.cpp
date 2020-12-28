@@ -48,7 +48,7 @@ public:
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
-    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData,int length);
+    typedef void(*FuncAffinePoseUpdateCallback)(double* poseData,int length);
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
@@ -521,7 +521,6 @@ public:
         }
         while (!DoExit3) {
             try {
-
                 cv::Point2f srcTri[3];
                 srcTri[0] = cv::Point2f(0.f, 0.f);
                 srcTri[1] = cv::Point2f(1.0f, 0.f);
@@ -567,7 +566,6 @@ public:
                     shouldUploadData = false;
                     try {
                         Debug::Log("Loading Map");
-
                         if (tm_sensor.import_localization_map(bytes_from_raw_file("temp.raw"))) {
                             ostringstream oss;
                             oss << "Map loaded from input data succesfully!" << std::endl;
@@ -587,7 +585,7 @@ public:
                 } 
                 //Then let's initialize the sensor and begin tracking
                 myProf = pipe.start(cfg, [&](rs2::frame frame) {
-                    if (auto fs = frame.as<rs2::pose_frame>()) {
+                    if (auto fs = frame.as<rs2::pose_frame>()) {// For pose frames
                         rs2::pose_frame pose_frame = frame.as<rs2::pose_frame>();
                         rs2_pose pose_data = pose_frame.get_pose_data();
                         auto now = std::chrono::system_clock::now().time_since_epoch();
@@ -625,51 +623,35 @@ public:
                         pose[4] = f[1];
                         pose[5] = f[2];
                         pose[6] = f[3];
-
-                            if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
-                                resetInitialPose = false;
-                                CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]);
-                            }
-                            CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]); //then we calculate the new pose (unrendered)
-                            deltaPose = initialPose.inv() * finalPose; //then we calculate a transformation from initial -> final
-                            //we then need to calculate the affine transformation, first multiply the three corners with the delta pose
-                            for (int i = 0; i < 3; i++) {
-                                dstTri[i] = MultiplyPoint(deltaPose,projMat, srcTri[i]);
-                            }
-
-                            try {
-                                vector<cv::Point2f> pointsPre;
-                                vector<cv::Point2f> pointsPost;
-                                for (int i = 0; i < 3; i++) {
-                                    pointsPre.push_back(srcTri[i]);
-                                    pointsPost.push_back(dstTri[i]);
-                                }
-                                aff = cv::getAffineTransform(pointsPre, pointsPost); 
-                                ostringstream oss3;
-                                oss3 << "Result Matrix: ";
-                                // copy the affine transform over
-                                vector<double> vec;
-                                vec.assign((double*)aff.datastart, (double*)aff.dataend);
-                                for (int i = 0; i < 6; i++) {
-                                    deltaAffineOut[i] = vec[i];
-                                    oss3 << deltaAffineOut[i] << ",";
-                                }
-                                Debug::Log(oss3.str(), Color::White);
-                            }
-                            catch (std::exception& e) {
-                                ostringstream oss;
-                                oss << e.what() << std::endl;
-                                Debug::Log(oss.str(), Color::Red);
-                            }
-                            //obtain the affineTransform between two points
-
-                            //povided we have a deltapose callback, call it here
-    //                        if (callbackAffinePoseUpdate != nullptr) {
-//                                callbackAffinePoseUpdate(deltaAffineOut, 6);
-  //                          }
-                        
+                        if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
+                            resetInitialPose = false;
+                            CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]);
+                        }
+                        CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]); //then we calculate the new pose (unrendered)
+                        deltaPose = finalPose.inv() * initialPose; //then we calculate a transformation from final -> initial (to reproject the inital frame into our new coordinates
+                        //we then need to calculate the affine transformation, first multiply the three corners with the delta pose
+                        for (int i = 0; i < 3; i++) {
+                            dstTri[i] = MultiplyPoint(deltaPose, projMat, srcTri[i]);
+                        }
+                        vector<cv::Point2f> pointsPre;
+                        vector<cv::Point2f> pointsPost;
+                        for (int i = 0; i < 3; i++) {
+                            pointsPre.push_back(srcTri[i]);
+                            pointsPost.push_back(dstTri[i]);
+                        }
+                        //Get the affine transform
+                        aff = cv::getAffineTransform(pointsPre, pointsPost);
+                        // copy the affine transform over
+                        vector<double> vec;
+                        vec.assign((double*)aff.datastart, (double*)aff.dataend);
+                        for (int i = 0; i < 6; i++) {
+                            deltaAffineOut[i] = vec[i];
+                        }
+                        if (callbackAffinePoseUpdate != nullptr) {
+                            callbackAffinePoseUpdate(deltaAffineOut, 6);
+                        }
                     }  
-                    if (auto fs = frame.as<rs2::frameset>()) {
+                    if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
                         const int w = video_frame.get_width();
                         const int h = video_frame.get_height();

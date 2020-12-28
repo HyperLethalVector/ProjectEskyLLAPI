@@ -17,7 +17,7 @@ static std::map<int, HWND> windowIds;
 static std::map<HWND, Graphics> windowGraphics;
 
 void DebugMessage(const char * message);
-
+ 
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -177,13 +177,18 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRectById(int
 		HWND hwnd = windowIds[windowId];
 		windowGraphics[hwnd].SetSize(width, height);
 		SetWindowPos(hwnd, 0, left, top, width, height, 0);
-	}
+	} 
 }
-
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdLeft(int windowId, void* texturePtr) {
 	if (windowIds.count(windowId)) {
 		selectedWnd = windowIds[windowId];
 		windowGraphics[selectedWnd].SetTexturePtrLeft(texturePtr);
+	}
+}
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetAffineTransform(int windowID, double* affineTransform) {
+	if (windowIds.count(windowID)) {
+		selectedWnd = windowIds[windowID];
+		windowGraphics[selectedWnd].SetAffine(affineTransform);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowID,
@@ -233,7 +238,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowAttributesBy
 	if (windowIds.count(windowId)) {
 		SetAttributes(windowIds[windowId], colorKey, alpha, flags);
 	}
-}
+} 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetColorFormat(int colorFormat) {
 	if (colorFormat == 0) {
@@ -242,15 +247,15 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetColorFormat(int co
 		Graphics::colorFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	} else if (colorFormat == 2) {
 		Graphics::colorFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	} 
-}
+	}   
+} 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetQualitySettings(int count, int quality) {
 	Graphics::sampleCount = count; 
-	Graphics::descQuality = quality;
+	Graphics::descQuality = quality; 
 }
-
+ 
 static void UNITY_INTERFACE_API OnInitGraphics(int eventID){ 
-	windowGraphics[selectedWnd].InitD3D(selectedWnd);
+	windowGraphics[selectedWnd].InitD3D(selectedWnd);  
 	myThread = new std::thread(DoBackgroundRender);
 }
 
