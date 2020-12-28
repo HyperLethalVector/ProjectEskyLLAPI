@@ -4,25 +4,25 @@
 #include <fstream>
 #include <thread>
 #include <iostream>
-#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION 
 #include "stb_image.h"
-#include <array> 
-#include <cmath>
+#include <array>   
+#include <cmath>  
 #include <iostream>
-#include <vector>
-#include <iomanip>
-#include <chrono>
+#include <vector>   
+#include <iomanip>  
+#include <chrono>    
 #include <thread> 
 #include <mutex>
-#include <math.h>
-#include <float.h>
-#include "Tracker.cpp"
+#include <math.h>  
+#include <float.h>  
+#include "Tracker.cpp"   
 #ifdef __linux__
-#else
-#include <d3d11.h>
+#else 
+#include <d3d11.h>  
 #define STB_IMAGE_IMPLEMENTATION
 #endif
-
+ 
 
 
 
@@ -34,7 +34,7 @@
 #define DLL_EXPORT 
 #else
 #define DLL_EXPORT __declspec(dllexport) 
-#endif
+#endif 
 #ifdef __cplusplus     
 extern "C" {
      
@@ -56,30 +56,33 @@ extern "C" {
     std::thread* t3;    
     void DoFunction3() {     
         to->DoFunctionTracking();   
-        delete to; 
+        delete to;  
         to = nullptr; 
     }
 
     void DoFunction4() { 
-        //toz->DoFunctionTracking();  
-//        toz->~ZedTrackerObject();
+        //toz->DoFunctionTracking();   
+//        toz->~ZedTrackerObject(); 
     }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
-        Debug::Log("Started Tracking Thread"); 
-        to->DoExit3 = false;
-        t3 = new std::thread(DoFunction3);
+        Debug::Log("Started Tracking Thread");  
+        to->DoExit3 = false;  
+        t3 = new std::thread(DoFunction3);     
+    } 
+    DLL_EXPORT void StartTrackerThreadZed(bool useLocalization) {//ignored for now.... 
+            
+        //toz->DoExit3 = false;  
+        t3 = new std::thread(DoFunction4); 
     }
-    DLL_EXPORT void StartTrackerThreadZed(bool useLocalization) {//ignored for now....
-
-        //toz->DoExit3 = false;
-        t3 = new std::thread(DoFunction4);
-    }
-    DLL_EXPORT float* GetLatestPose() { 
-        return to->pose;
-    }
+    DLL_EXPORT float* GetLatestPose() {    
+        return to->pose;  
+    } 
+    DLL_EXPORT double* GetLatestAffineTransform() {
+        return to->deltaAffineOut;
+    } 
     DLL_EXPORT void InitializeTrackerObject() {
         if (to == nullptr) { 
-            to = new TrackerObject();
+            to = new TrackerObject(); 
         } 
     }
     DLL_EXPORT void ObtainMap() { 
@@ -90,12 +93,12 @@ extern "C" {
     DLL_EXPORT void SetMapData(unsigned char* inputData, int Length) { 
         if (to != nullptr) {
             Debug::Log("Should Start Now");
-            to->ImportMap(inputData, Length); 
+            to->ImportMap(inputData, Length);   
 
-        }
-    } 
+        } 
+    }  
     DLL_EXPORT void ObtainObjectPoseInLocalizedMap(const char* objectID) {
-        if (to != nullptr) {
+        if (to != nullptr) {   
             to->GrabObjectPose(objectID);
         }
         else {
@@ -125,27 +128,27 @@ extern "C" {
     }
     static IUnityInterfaces* s_UnityInterfaces = NULL; 
     static IUnityGraphics* s_Graphics = NULL;
-
-    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType);
+     
+    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType); 
     extern "C" void	UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces * unityInterfaces)
     {
-        s_UnityInterfaces = unityInterfaces; 
+        s_UnityInterfaces = unityInterfaces;  
         s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
         s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize); 
-    }
-     
+        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);   
+    } 
+      
     extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
     { 
-        s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+        s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent); 
     }
 
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
     DLL_EXPORT void SetTextureInitializedCallback(FuncTextureInitializedCallback myCallback) {
         if (to != nullptr) { 
-            Debug::Log("Set my texture callback"); 
+            Debug::Log("Set my texture callback");  
             to->textureInitializedCallback = myCallback;
-        } 
+        }  
         else { 
             Debug::Log("Tracker not initialized!!");
         }
@@ -166,15 +169,31 @@ extern "C" {
         }   
     } 
     typedef void(*FuncCallBack)(const char* message, int color, int size); 
-    static FuncCallBack callbackInstance = nullptr;  
+    static FuncCallBack callbackInstance = nullptr;   
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
-    DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) {
-        if (to != nullptr) { 
+    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData, int length);
+    DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) { 
+        if (to != nullptr) {   
             to->quaternionCallback = qc;   
+        }  
+    }
+    DLL_EXPORT void RegisterDeltaAffineCallback(FuncAffinePoseUpdateCallback fdpuc) {
+        if (to != nullptr) {  
+            to->callbackAffinePoseUpdate = fdpuc;
         } 
+    } 
+    DLL_EXPORT void PostRenderReset() { 
+        if (to != nullptr) { 
+            to->ResetInitialPose(); 
+        }
+    }
+    DLL_EXPORT void ResetTrackerInitialPose() {
+        if (to != nullptr) {
+            to->ResetInitialPose();
+        }
     }
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);   
     DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);

@@ -1,6 +1,6 @@
 
 #include <windows.h>
-
+#include <thread>
 #include "graphics.h"
 
 #include "IUnityInterface.h"
@@ -12,7 +12,7 @@ static HWND ghWnd = NULL;
 static HWND selectedWnd = NULL;
 
 HINSTANCE hInstance;
-
+std::thread* myThread = nullptr; 
 static std::map<int, HWND> windowIds;
 static std::map<HWND, Graphics> windowGraphics;
 
@@ -21,22 +21,22 @@ void DebugMessage(const char * message);
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    // sort through and find what code to run for the message given
+    // sort through and find what code to run for the message given 
     switch(message)
     {
-		case WM_SIZE: // If our window is resizing  
+		case WM_SIZE: // If our window is resizing   
 			windowGraphics[hWnd].SetSize(LOWORD(lParam), LOWORD(lParam));
 			break; 
 			 
 		case WM_CLOSE:		
-			if(windowGraphics[hWnd].GetCloseFromUnity()){
+			if(windowGraphics[hWnd].GetCloseFromUnity()){ 
 				windowGraphics[hWnd].SetCloseFromUnity(false);	
-				Graphics graphics = windowGraphics[hWnd];
+				Graphics graphics = windowGraphics[hWnd]; 
 				graphics.GraphicsRelease();
 				windowGraphics.erase(hWnd);
 
-			} else {
-				return 0;//!! this case, won't be treated, the plugin window should be closed only from Unity ...
+			} else { 
+				return 0;//!! this case, won't be treated, the plugin window should be closed only from Uni ty ...
 			}
 			break;	
 		
@@ -44,8 +44,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         // this message is read when the window is closed
         case WM_DESTROY:
 
-			break;
-    }
+			break; 
+    } 
 
     // Handle any messages the switch statement didn't
     return DefWindowProc (hWnd, message, wParam, lParam);
@@ -81,8 +81,8 @@ HWND CreateNewWindow(LPCWSTR titlestr, int width, int height, bool noStyle) {
 
 	UnregisterClass((LPCSTR)title, hInstance);
 
-	if (!RegisterClassEx(&windowClass)) {
-		return NULL;
+	if (!RegisterClassEx(&windowClass)) {  
+		return NULL; 
 	}
 
 	RECT wr = {0, 0, width, height};
@@ -90,7 +90,7 @@ HWND CreateNewWindow(LPCWSTR titlestr, int width, int height, bool noStyle) {
 	hWnd = CreateWindowEx(dwExStyle, (LPCSTR)title, (LPCSTR)title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 	if(noStyle){
 		SetWindowLong(hWnd, GWL_STYLE, 0);
-	}
+	} 
 
 	ShowWindow(hWnd, SW_SHOW);  
 	UpdateWindow(hWnd);
@@ -135,25 +135,40 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPlugin
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginLeft(void* texturePtr) {
 	selectedWnd = ghWnd;
-	windowGraphics[selectedWnd].SetTexturePtrLeft(texturePtr);
-}
+	windowGraphics[selectedWnd].SetTexturePtrLeft(texturePtr); 
+} 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginRight(void* texturePtr) {
 	selectedWnd = ghWnd;
-	windowGraphics[selectedWnd].SetTexturePtrRight(texturePtr);
+	windowGraphics[selectedWnd].SetTexturePtrRight(texturePtr); 
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StartWindowById(int windowId, const wchar_t * title, int width, int height, bool noBorder) {
 	if (!windowIds.count(windowId)) {
 		windowIds[windowId] = CreateNewWindow(title, width, height, noBorder);
 	}
 }
-
+void DoBackgroundRender() {
+	while (windowGraphics[selectedWnd].graphicsRender) {
+		windowGraphics[selectedWnd].GraphicsBackgroundThreadRenderFrame();
+	}
+} 
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StartRenderThreadById(int windowId) {
+	if (windowIds.count(windowId)) {
+		selectedWnd = windowIds[windowId];		 
+	}  
+}
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopRenderThreadById(int windowId) {
+	if (windowIds.count(windowId)) {
+		selectedWnd = windowIds[windowId]; 
+	}   
+}
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopWindowById(int windowId) {
 	if (windowIds.count(windowId)) {
 		HWND hwnd = windowIds[windowId];
 		windowGraphics[hwnd].SetCloseFromUnity(true);
 		windowIds.erase(windowId);
-		PostMessage(hwnd, WM_CLOSE, 0, 0);
+		PostMessage(hwnd, WM_CLOSE, 0, 0);		
+		myThread = nullptr;
 	}
 }
 
@@ -212,7 +227,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowAttributes(i
 	if (ghWnd) {
 		SetAttributes(ghWnd, colorKey, alpha, flags);
 	}
-}
+} 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowAttributesById(int windowId, int colorKey, byte alpha, int flags) {
 	if (windowIds.count(windowId)) {
@@ -227,26 +242,27 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetColorFormat(int co
 		Graphics::colorFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	} else if (colorFormat == 2) {
 		Graphics::colorFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	}
+	} 
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetQualitySettings(int count, int quality) {
-	Graphics::sampleCount = count;
+	Graphics::sampleCount = count; 
 	Graphics::descQuality = quality;
 }
 
-static void UNITY_INTERFACE_API OnInitGraphics(int eventID){
+static void UNITY_INTERFACE_API OnInitGraphics(int eventID){ 
 	windowGraphics[selectedWnd].InitD3D(selectedWnd);
+	myThread = new std::thread(DoBackgroundRender);
 }
 
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitGraphics(){
+extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitGraphics(){ 
 	return OnInitGraphics;
 }
 
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID) {
 	std::map<HWND, Graphics>::iterator it = windowGraphics.begin();
 	while (it != windowGraphics.end()) {
-		it->second.RenderFrame(); 
-		it++;
+			it->second.RenderFrame();
+			it++;
 	}
 }
 

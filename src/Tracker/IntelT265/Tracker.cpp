@@ -48,27 +48,39 @@ public:
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
+    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData,int length);
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
     FuncCallBack2 callbackLocalization = nullptr;
     FuncCallBack3 callbackBinaryMap = nullptr;
     FuncCallBack4 callbackObjectPoseReceived = nullptr;
+    FuncAffinePoseUpdateCallback callbackAffinePoseUpdate = nullptr;
 #ifdef __linux__ //OGL
 
 #else
     ID3D11Device* m_Device;
     ID3D11Texture2D* d3dtex;
 #endif
+    bool resetInitialPose = true;
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
+    double* deltaAffineOut = new double[6]{ 1,0,0,
+                                     0,1,0 };
+    float* hardCodedProjection = new float[16]{
+                                                1.427334f,  0, 0,0,
+                                                0,2.537483f,0, 0, 
+                                                0,0, -1.0002,-0.20002,
+                                                0,0,-1, 0 
+                                            };
     //get intrinsics as float array
     // the fisheye mat
     cv::Mat fisheye_mat;
     cv::Mat fisheye_mat_color;
     cv::Mat fisheye_mat_color_undistort;
     cv::Mat lm1, lm2;
+    cv::Mat affineTransform;
     rs2_pose object_in_world_pose_frame;
     bool hasLocalized = false;
     unsigned char* fileLocation;
@@ -92,6 +104,9 @@ public:
     int nInputs = 0;             // the number of action control
     double dt = 0.005;           // time between measurements (1/FPS)
     cv::KalmanFilter KF;         // instantiate Kalman Filter
+    void ResetInitialPose() {
+        resetInitialPose = true;
+    }
     Quaternion ToQuaternion(double y, double p, double r) // yaw (Z), pitch (Y), roll (X)
     {
         double yaw = y * (PI / 180.0f);
@@ -185,22 +200,50 @@ public:
         };
         return Q;
     }
-    cv::Mat Quaternion2Matrix(cv::Mat q)
-    {
-        float w = q.at<float>(0);
-        float x = q.at<float>(1);
-        float y = q.at<float>(2);
-        float z = q.at<float>(3);
+    void SetIdentity(cv::Mat& inputArr) {
+        float ret[4][4];
+        ret[0][0] = 1.0f;
+        ret[0][1] = 0.0f;
+        ret[0][2] = 0.0f;
+        ret[0][3] = 0.0f;
 
-        float xx = x * x;
-        float yy = y * y;
-        float zz = z * z;
-        float xy = x * y;
-        float wz = w * z;
-        float wy = w * y;
-        float xz = x * z;
-        float yz = y * z;
-        float wx = w * x;
+        ret[1][0] = 0.0f;
+        ret[1][1] = 1.0f;
+        ret[1][2] = 0.0f;
+        ret[1][3] = 0.0f;
+
+        ret[2][0] = 0.0f;
+        ret[2][1] = 0.0f;
+        ret[2][2] = 1.0f;
+        ret[2][3] = 0.0f;
+
+        ret[3][0] = 0.0f;
+        ret[3][1] = 0.0f;
+        ret[3][2] = 0.0f;
+        ret[3][3] = 1.0f;
+        std::memcpy(inputArr.data, ret, 4 * 4 * sizeof(float));
+    }
+    cv::Point2f MultiplyPoint(cv::Mat dP, cv::Mat P, const cv::Point2f p) //multiply RenderPlane point by the deltaTransformationMatrix
+    {
+        cv::Mat_<float> src(4/*rows*/, 1 /* cols */);
+        src(0, 0) = p.x;
+        src(1, 0) = p.y;
+        src(2, 0) = 1.0;
+        src(3, 0) = 1.0;
+        cv::Mat_<float> dst = P * dP * P.inv() * src; //Inv Proj, delta pose, proj
+        return cv::Point2f(dst(0, 0), dst(1, 0));
+    }
+    void CopyTransformationMatrix(cv::Mat& inputArr,float tx, float ty, float tz, float rx, float ry, float rz, float rw)
+    {
+        float xx = rx * rx;
+        float yy = ry * ry;
+        float zz = rz * rz;
+        float xy = rx * ry;
+        float wz = rw * rz;
+        float wy = rw * ry;
+        float xz = rx * rz;
+        float yz = ry * rz;
+        float wx = rw * rx;
 
         float ret[4][4];
         ret[0][0] = 1.0f - 2 * (yy + zz);
@@ -218,12 +261,11 @@ public:
         ret[2][2] = 1.0f - 2 * (xx + yy);
         ret[2][3] = 0.0f;
 
-        ret[3][0] = 0.0f;
-        ret[3][1] = 0.0f;
-        ret[3][2] = 0.0f;
+        ret[3][0] = tx;
+        ret[3][1] = ty;
+        ret[3][2] = tz;
         ret[3][3] = 1.0f;
-
-        return cv::Mat(4, 4, CV_32FC1, ret).clone();
+        std::memcpy(inputArr.data, ret, 4 * 4 * sizeof(float));
     }
     void updateKalmanFilter( cv::KalmanFilter &KF, cv::Mat &measurement,
         rs2_pose& predicted, EulerAngles& ea)
@@ -479,6 +521,22 @@ public:
         }
         while (!DoExit3) {
             try {
+
+                cv::Point2f srcTri[3];
+                srcTri[0] = cv::Point2f(0.f, 0.f);
+                srcTri[1] = cv::Point2f(1.0f, 0.f);
+                srcTri[2] = cv::Point2f(0.0f, 1.0f);
+
+                cv::Point2f dstTri[3];
+                dstTri[0] = cv::Point2f(0.f, 0.f);
+                dstTri[1] = cv::Point2f(1.0f, 0.f);
+                dstTri[2] = cv::Point2f(0.0f, 1.0f);
+
+                cv::Mat projMat = cv::Mat(4, 4, CV_32F, hardCodedProjection);
+                cv::Mat initialPose = cv::Mat(4, 4, CV_32F); SetIdentity(initialPose);
+                cv::Mat finalPose = cv::Mat(4, 4, CV_32F); SetIdentity(finalPose);
+                cv::Mat deltaPose = cv::Mat(4, 4, CV_32F); SetIdentity(deltaPose);
+                cv::Mat aff = cv::Mat(3, 4, CV_32F);
                 float AngleToDeg = (3.14f / 180.0f);
                 float* f = new float[4] {0.0f, 0.0f, 0.0f, 0.0f};
                 initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
@@ -535,19 +593,19 @@ public:
                         auto now = std::chrono::system_clock::now().time_since_epoch();
                         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
                         double pose_time_ms = pose_frame.get_timestamp();
-                        float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0)); 
+                        float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
                         rs2_pose predicted_pose = predict_pose(pose_data, dt_s);
-                        rs2_quaternion qt = predicted_pose.rotation; 
+                        rs2_quaternion qt = predicted_pose.rotation;
                         qq.x = predicted_pose.rotation.x;
-                        qq.y = predicted_pose.rotation.y; 
-                        qq.z = predicted_pose.rotation.z;  
-                        qq.w = predicted_pose.rotation.w;  
+                        qq.y = predicted_pose.rotation.y;
+                        qq.z = predicted_pose.rotation.z;
+                        qq.w = predicted_pose.rotation.w;
                         EulerAngles EulerPre = eu;
                         EulerPre.x = eu.x;
                         EulerPre.y = eu.y;
                         EulerPre.z = eu.z;
                         ToEulerAngles(qq, eu);
-                        fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
+                        fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                         updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
                         pose[0] = predicted_pose.translation.x;
                         pose[1] = predicted_pose.translation.y;
@@ -556,17 +614,60 @@ public:
                             Debug::Log("Jumping Pose");
                             initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
                             measurements.setTo(cv::Scalar(0));
-                            ToEulerAngles(qq, eu);  
-                            fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, predicted_pose.translation.z, eu.x, eu.y, eu.z); //add the measurement to the filter
+                            ToEulerAngles(qq, eu);
+                            fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                             updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
-                        }  
+                        }
                         if (quaternionCallback != nullptr) {
-                            quaternionCallback(f,eu.x, eu.y, eu.z);
+                            quaternionCallback(f, eu.x, eu.y, eu.z);
                         }
                         pose[3] = f[0];
                         pose[4] = f[1];
-                        pose[5] = f[2];  
-                        pose[6] = f[3]; 
+                        pose[5] = f[2];
+                        pose[6] = f[3];
+
+                            if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
+                                resetInitialPose = false;
+                                CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]);
+                            }
+                            CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]); //then we calculate the new pose (unrendered)
+                            deltaPose = initialPose.inv() * finalPose; //then we calculate a transformation from initial -> final
+                            //we then need to calculate the affine transformation, first multiply the three corners with the delta pose
+                            for (int i = 0; i < 3; i++) {
+                                dstTri[i] = MultiplyPoint(deltaPose,projMat, srcTri[i]);
+                            }
+
+                            try {
+                                vector<cv::Point2f> pointsPre;
+                                vector<cv::Point2f> pointsPost;
+                                for (int i = 0; i < 3; i++) {
+                                    pointsPre.push_back(srcTri[i]);
+                                    pointsPost.push_back(dstTri[i]);
+                                }
+                                aff = cv::getAffineTransform(pointsPre, pointsPost); 
+                                ostringstream oss3;
+                                oss3 << "Result Matrix: ";
+                                // copy the affine transform over
+                                vector<double> vec;
+                                vec.assign((double*)aff.datastart, (double*)aff.dataend);
+                                for (int i = 0; i < 6; i++) {
+                                    deltaAffineOut[i] = vec[i];
+                                    oss3 << deltaAffineOut[i] << ",";
+                                }
+                                Debug::Log(oss3.str(), Color::White);
+                            }
+                            catch (std::exception& e) {
+                                ostringstream oss;
+                                oss << e.what() << std::endl;
+                                Debug::Log(oss.str(), Color::Red);
+                            }
+                            //obtain the affineTransform between two points
+
+                            //povided we have a deltapose callback, call it here
+    //                        if (callbackAffinePoseUpdate != nullptr) {
+//                                callbackAffinePoseUpdate(deltaAffineOut, 6);
+  //                          }
+                        
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
@@ -695,23 +796,27 @@ public:
                     if (DoExit3) {//if we should exit, exit the tracker loop first
                         shouldRestart = true;
                     }
+//                    cv::warpAffine(img, postWarp, aff, postWarp.size());
+  //                  cv::imshow("Pre warped", img);
+    //                cv::imshow("warped output ", postWarp); 
+                }
+                if (usesIntegrator) {
+#ifdef __linux__
+                    SerialPort serialPort(com_port, BaudRate::B_9600);
+                    serialPort.SetTimeout(-1); // Block when reading until any data is received
+                    serialPort.Open();
+                    serialPort.Write("r\r\n");
+                    serialPort.Close();
+#else
+                    Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
+                    if (Serial->WriteSerialPort("r\r\n")) {
+                        Debug::Log("Restarted the t265/1", Color::Green);
+                        std::this_thread::sleep_for(std::chrono::seconds(1));
+                    }
+#endif
                 }
                 pipe.stop(); 
-                if (usesIntegrator) {
-                    #ifdef __linux__
-                                        SerialPort serialPort(com_port, BaudRate::B_9600);
-                                        serialPort.SetTimeout(-1); // Block when reading until any data is received
-                                        serialPort.Open();
-                                        serialPort.Write("r\r\n");
-                                        serialPort.Close();
-                    #else
-                                        Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
-                                        if (Serial->WriteSerialPort("r\r\n")) {
-                                            Debug::Log("Restarted the t265/1", Color::Green);
-                                            std::this_thread::sleep_for(std::chrono::seconds(1));
-                                        }
-                    #endif
-                }
+               
                 if (DoExit3) {
                     break;
                 }

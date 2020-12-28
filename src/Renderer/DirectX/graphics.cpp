@@ -11,6 +11,11 @@
 #include <sstream>
 #include "graphics.h"
 
+#ifdef __linux__ //OGL
+
+#else
+#include <Windows.h>
+#endif
 ID3D11Device *unityDev;
 ID3D11DeviceContext *unityDevCon;
 static IUnityInterfaces* s_UnityInterfaces = NULL;
@@ -60,7 +65,7 @@ void Graphics::InitD3D(HWND hWnd) {
 	scd.BufferDesc.Width = width;
     scd.BufferDesc.Height = height;
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	scd.OutputWindow = hWnd;
+	scd.OutputWindow = hWnd; 
 	scd.SampleDesc.Count = 1;
 	scd.SampleDesc.Quality = 0;
 
@@ -71,11 +76,13 @@ void Graphics::InitD3D(HWND hWnd) {
 		unityCreationFlags = unityDev->GetCreationFlags();
 	}
 	D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, unityCreationFlags, NULL, NULL, D3D11_SDK_VERSION, &scd, &swapchain, &dev, NULL, &devcon);	
-	SetBufferRenderTargets();
+	SetBufferRenderTargets(); 
 	SetViewport(width, height);	
 	InitPipeline();
 	InitTextureSampler();	
     InitGraphics();
+	doesExit = false;
+	graphicsRender = true;
 }
 
 void Graphics::RenderFrame() {
@@ -86,17 +93,35 @@ void Graphics::RenderFrame() {
 		unityDevCon->CopyResource(pProxyTextureRight, pExternalTextureRight);
 	}
 
-	FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	devcon->ClearRenderTargetView(backbuffer, color);
-
-	UINT stride = sizeof(VERTEX);
-	UINT offset = 0;
-	devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
-	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	devcon->Draw(4, 0);
-	swapchain->Present(0, 0);
+/*	FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+*	devcon->ClearRenderTargetView(backbuffer, color);
+*	UINT stride = sizeof(VERTEX);
+*	UINT offset = 0;*
+*	devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
+*	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+*	devcon->Draw(4, 0);
+	swapchain->Present(0, 0);*/
 }
+void Graphics::GraphicsBackgroundThreadRenderFrame() {
+	graphicsRender = true;
+	while (graphicsRender) {
+		FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		devcon->ClearRenderTargetView(backbuffer, color);
+		UINT stride = sizeof(VERTEX);
+		UINT offset = 0;
+		devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
+		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		devcon->Draw(4, 0);
+		swapchain->Present(0, 0);
+		if (wmCloseFromUnity) {
+			graphicsRender = false;
+		}
+		else {
+			std::this_thread::sleep_for(std::chrono::milliseconds(8));
+		}
+	}
 
+} 
 void Graphics::GraphicsRelease() {
 	CleanD3D();
 }

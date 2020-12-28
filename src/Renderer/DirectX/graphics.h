@@ -1,5 +1,5 @@
 #pragma once
-
+#include <thread>
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
@@ -37,9 +37,10 @@ typedef struct ShaderVals {//float is 4 bytes
 }ShaderVals;
 class Graphics {
 private:
+
 	IDXGISwapChain *swapchain;
 	ID3D11Device *dev;
-	ID3D11DeviceContext *devcon; 
+
 	ID3D11RenderTargetView *backbuffer;
 	ID3D11VertexShader *pVS;    // the vertex shader
 	ID3D11PixelShader *pPS;     // the pixel shader
@@ -63,21 +64,36 @@ private:
 	bool wmCloseFromUnity = false;
 	//std::wstring registeredClassName;
 public:
-
+	bool threadStarted = false;
+	bool hasNewFrame = false;
+	bool doesExit = false;
+	ID3D11DeviceContext* devcon;
 	int unityTextureWidth;
 	int unityTextureHeight;
 	static DXGI_FORMAT colorFormat;
-	static int sampleCount;
+	static int sampleCount; 
 	static int descQuality;
-
+	bool doRender = false;
+	bool graphicsRender = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
 	void RenderFrame();
+	void GraphicsBackgroundThreadRenderFrame();
 	void SetTexturePtrLeft(void* texturePtr);
 	void SetTexturePtrRight(void* texturePtr);
 	void SetSize(int w, int h) { width = w; height = h; }
 	void SetCloseFromUnity(bool closeFromUnity) { wmCloseFromUnity = closeFromUnity;}
 	bool GetCloseFromUnity() { return wmCloseFromUnity; }
+	void StartRenderThread() {
+		if (!threadStarted) {
+			threadStarted = true;
+		}
+	}
+	void StopRenderThread() {
+		if (threadStarted) {
+
+		}
+	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };
 		float rightUvToRectX[],// = { 0.0 };
