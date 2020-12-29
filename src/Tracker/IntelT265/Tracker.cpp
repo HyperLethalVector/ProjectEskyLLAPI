@@ -66,8 +66,9 @@ public:
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
-    double* deltaAffineOut = new double[6]{ 1,0,0,
-                                     0,1,0 };
+    double* deltaAffineOut = new double[9]{ 1,0,0,
+                                     0,1,0, 
+                                     0,0,1};
     float* hardCodedProjection = new float[16]{
                                                 1.427334f,  0, 0,0,
                                                 0,2.537483f,0, 0, 
@@ -521,15 +522,17 @@ public:
         }
         while (!DoExit3) {
             try {
-                cv::Point2f srcTri[3];
+                cv::Point2f srcTri[4];
                 srcTri[0] = cv::Point2f(0.f, 0.f);
                 srcTri[1] = cv::Point2f(1.0f, 0.f);
                 srcTri[2] = cv::Point2f(0.0f, 1.0f);
+                srcTri[3] = cv::Point2f(1.0f, 1.0f);
 
                 cv::Point2f dstTri[3];
                 dstTri[0] = cv::Point2f(0.f, 0.f);
                 dstTri[1] = cv::Point2f(1.0f, 0.f);
                 dstTri[2] = cv::Point2f(0.0f, 1.0f);
+                dstTri[3] = cv::Point2f(1.0f, 1.0f);
 
                 cv::Mat projMat = cv::Mat(4, 4, CV_32F, hardCodedProjection);
                 cv::Mat initialPose = cv::Mat(4, 4, CV_32F); SetIdentity(initialPose);
@@ -630,25 +633,25 @@ public:
                         CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]); //then we calculate the new pose (unrendered)
                         deltaPose = finalPose.inv() * initialPose; //then we calculate a transformation from final -> initial (to reproject the inital frame into our new coordinates
                         //we then need to calculate the affine transformation, first multiply the three corners with the delta pose
-                        for (int i = 0; i < 3; i++) {
+                        for (int i = 0; i < 4; i++) {
                             dstTri[i] = MultiplyPoint(deltaPose, projMat, srcTri[i]);
                         }
-                        vector<cv::Point2f> pointsPre;
+                        vector<cv::Point2f> pointsPre; 
                         vector<cv::Point2f> pointsPost;
-                        for (int i = 0; i < 3; i++) {
+                        for (int i = 0; i < 4; i++) {
                             pointsPre.push_back(srcTri[i]);
                             pointsPost.push_back(dstTri[i]);
                         }
                         //Get the affine transform
-                        aff = cv::getAffineTransform(pointsPre, pointsPost);
+                        aff = cv::getPerspectiveTransform(pointsPre, pointsPost);
                         // copy the affine transform over
                         vector<double> vec;
                         vec.assign((double*)aff.datastart, (double*)aff.dataend);
-                        for (int i = 0; i < 6; i++) {
+                        for (int i = 0; i < 9; i++) {
                             deltaAffineOut[i] = vec[i];
                         }
                         if (callbackAffinePoseUpdate != nullptr) {
-                            callbackAffinePoseUpdate(deltaAffineOut, 6);
+                            callbackAffinePoseUpdate(deltaAffineOut, 9);
                         }
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames

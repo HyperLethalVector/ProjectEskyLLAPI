@@ -4,7 +4,7 @@
 #include "graphics.h"
 
 #include "IUnityInterface.h"
-#include "IUnityGraphics.h"
+#include "IUnityGraphics.h" 
 
 #include <map>
 
@@ -78,7 +78,7 @@ HWND CreateNewWindow(LPCWSTR titlestr, int width, int height, bool noStyle) {
 	
 	Graphics graphics;
 	graphics.SetSize(width, height);
-
+	 
 	UnregisterClass((LPCSTR)title, hInstance);
 
 	if (!RegisterClassEx(&windowClass)) {  
@@ -245,15 +245,15 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetColorFormat(int co
 		Graphics::colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 	} else if (colorFormat == 1) {
 		Graphics::colorFormat = DXGI_FORMAT_R16G16B16A16_FLOAT;
-	} else if (colorFormat == 2) {
+	} else if (colorFormat == 2) { 
 		Graphics::colorFormat = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	}   
+	}        
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetQualitySettings(int count, int quality) {
 	Graphics::sampleCount = count; 
-	Graphics::descQuality = quality; 
-}
- 
+	Graphics::descQuality = quality;  
+} 
+  
 static void UNITY_INTERFACE_API OnInitGraphics(int eventID){ 
 	windowGraphics[selectedWnd].InitD3D(selectedWnd);  
 	myThread = new std::thread(DoBackgroundRender);

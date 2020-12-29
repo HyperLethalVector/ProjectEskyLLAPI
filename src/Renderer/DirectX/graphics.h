@@ -31,12 +31,13 @@ typedef struct ShaderVals {//float is 4 bytes
 	DirectX::XMFLOAT4X4 rightUvToRectY;
 	DirectX::XMFLOAT4X4 cameraMatrixLeft;
 	DirectX::XMFLOAT4X4 cameraMatrixRight;
+	DirectX::XMFLOAT4X4 affineTransform;
 	DirectX::XMFLOAT4 eyeBordersLeft;
 	DirectX::XMFLOAT4 eyeBordersRight;
 	DirectX::XMFLOAT4 offsets;
 }ShaderVals;
 typedef struct ShaderVals2 {
-	DirectX::XMFLOAT3X3 affineTransform;
+
 };
 class Graphics {
 private:
@@ -62,10 +63,20 @@ private:
 	ID3D11Buffer*   g_pConstantBuffer11 = NULL;
 	int width;
 	int height;
-
 	int bufferWidth = 0;
 	int bufferHeight = 0;
 	bool wmCloseFromUnity = false;
+	//temprorarily stored buffers
+	float* bleftUvToRectX;// = { 0.0 };
+	float* bleftUvToRectY;// = { 0.0 };
+	float* brightUvToRectX;// = { 0.0 };
+	float* brightUvToRectY;// = { 0.0 };
+	float* bCameraMatrixLeft;// = { 0.0 };
+	float* bCameraMatrixRight;// = { 0.0 };
+	float* bleftOffset;// = { 0.0 };
+	float* brightOffset;// = { 0.0 };
+	float* beyeBorders;
+	ShaderVals myShaderVals;
 public:
 
 	bool threadStarted = false;
@@ -100,9 +111,30 @@ public:
 		}
 	}
 	void SetAffine(double* inputAffine) {
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 9; i++) {
 			deltaAffineIn[i] = inputAffine[i];
 		}
+		myShaderVals.affineTransform.m[0][0] = inputAffine[0];
+		myShaderVals.affineTransform.m[1][0] = inputAffine[1];
+		myShaderVals.affineTransform.m[2][0] = inputAffine[2];
+		myShaderVals.affineTransform.m[2][0] = 0.0;
+
+		myShaderVals.affineTransform.m[0][1] = inputAffine[3];
+		myShaderVals.affineTransform.m[1][1] = inputAffine[4];
+		myShaderVals.affineTransform.m[2][1] = inputAffine[5];
+		myShaderVals.affineTransform.m[3][1] = 0.0;
+
+
+		myShaderVals.affineTransform.m[0][2] = inputAffine[6];
+		myShaderVals.affineTransform.m[1][2] = inputAffine[7];
+		myShaderVals.affineTransform.m[2][2] = inputAffine[8];
+		myShaderVals.affineTransform.m[3][1] = 0.0;
+
+		myShaderVals.affineTransform.m[0][3] = 0.0;
+		myShaderVals.affineTransform.m[1][3] = 0.0;
+		myShaderVals.affineTransform.m[2][3] = 0.0;
+		myShaderVals.affineTransform.m[3][3] = 1.0;
+
 		updateAffineOnGraphicsThread = true;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
@@ -114,8 +146,7 @@ public:
 		float leftOffset[],// = { 0.0 };
 		float rightOffset[],// = { 0.0 };
 		float eyeBorders[]) {
-		ShaderVals myShaderVals;
-		ShaderVals2 myShaderVals2;
+
 		myShaderVals.eyeBordersLeft.x = eyeBorders[0];myShaderVals.eyeBordersLeft.y = eyeBorders[1];myShaderVals.eyeBordersLeft.z = eyeBorders[2];myShaderVals.eyeBordersLeft.w = eyeBorders[3];
 		myShaderVals.eyeBordersRight.x = eyeBorders[4];myShaderVals.eyeBordersRight.y = eyeBorders[5];myShaderVals.eyeBordersRight.z = eyeBorders[6];myShaderVals.eyeBordersRight.w = eyeBorders[7];
 		myShaderVals.offsets.x = leftOffset[0]; myShaderVals.offsets.y = leftOffset[1]; myShaderVals.offsets.z = rightOffset[0]; myShaderVals.offsets.w = rightOffset[1];
@@ -129,17 +160,27 @@ public:
 				myShaderVals.cameraMatrixRight.m[x][y] = CameraMatrixRight[y * 4 + x];
 			}
 		}
-		myShaderVals2.affineTransform.m[0][0] = 1.0;
-		myShaderVals2.affineTransform.m[1][0] = 0.0;
-		myShaderVals2.affineTransform.m[2][0] = 0.0;
+		myShaderVals.affineTransform.m[0][0] = 1.0;
+		myShaderVals.affineTransform.m[1][0] = 0.0;
+		myShaderVals.affineTransform.m[2][0] = 0.0;
+		myShaderVals.affineTransform.m[2][0] = 0.0;
 
-		myShaderVals2.affineTransform.m[0][1] = 0.0;
-		myShaderVals2.affineTransform.m[1][1] = 1.0;
-		myShaderVals2.affineTransform.m[2][1] = 0.0;
+		myShaderVals.affineTransform.m[0][1] = 0.0;
+		myShaderVals.affineTransform.m[1][1] = 1.0;
+		myShaderVals.affineTransform.m[2][1] = 0.0;
+		myShaderVals.affineTransform.m[3][1] = 0.0;
 
-		myShaderVals2.affineTransform.m[0][2] = 0.0;
-		myShaderVals2.affineTransform.m[1][2] = 0.0;
-		myShaderVals2.affineTransform.m[2][2] = 1.0;
+
+		myShaderVals.affineTransform.m[0][2] = 0.0;
+		myShaderVals.affineTransform.m[1][2] = 0.0;
+		myShaderVals.affineTransform.m[2][2] = 1.0;
+		myShaderVals.affineTransform.m[3][1] = 0.0;
+
+		myShaderVals.affineTransform.m[0][3] = 0.0;
+		myShaderVals.affineTransform.m[1][3] = 0.0;
+		myShaderVals.affineTransform.m[2][3] = 0.0;
+		myShaderVals.affineTransform.m[3][3] = 1.0;
+
 
 		if (g_pConstantBuffer11) {
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -154,12 +195,10 @@ public:
 			dataPtr->eyeBordersLeft = myShaderVals.eyeBordersLeft;
 			dataPtr->eyeBordersRight = myShaderVals.eyeBordersRight;
 			dataPtr->offsets = myShaderVals.offsets;
+			dataPtr->affineTransform = myShaderVals.affineTransform;
 			devcon->Unmap(g_pConstantBuffer11, 0);
 			devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
 			devcon->PSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
-
-
-			////			dataPtr->affineTransform = myShaderVals.affineTransform;
 		}
 	}
 private:

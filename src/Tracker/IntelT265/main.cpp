@@ -6,7 +6,7 @@
 #include <iostream>
 #define STB_IMAGE_IMPLEMENTATION 
 #include "stb_image.h"  
-#include <array>   
+#include <array>    
 #include <cmath>  
 #include <iostream>
 #include <vector>   
@@ -45,7 +45,7 @@ extern "C" {
 #else
     ID3D11Device* m_Device; 
 #endif
-    DLL_EXPORT void StopTrackers() {
+    DLL_EXPORT void StopTrackers() { 
         doExit2 = true; 
         if (to != nullptr) {
             Debug::Log("Stopping Realsense Tracking"); 
@@ -77,7 +77,7 @@ extern "C" {
     } 
     DLL_EXPORT double* GetLatestAffine() {
         return to->deltaAffineOut;
-    }
+    }  
 
     DLL_EXPORT double* GetLatestAffineTransform() {
         return to->deltaAffineOut;

@@ -96,23 +96,24 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	while (graphicsRender) {
 		if (updateAffineOnGraphicsThread) {
 			updateAffineOnGraphicsThread = false;
-/*			if (g_pConstantBuffer11) {
+			if (g_pConstantBuffer11) {
 				D3D11_MAPPED_SUBRESOURCE mappedResource;
 				devcon->Map(g_pConstantBuffer11, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 				ShaderVals* dataPtr = (ShaderVals*)mappedResource.pData;
-/*				dataPtr->affineTransform.m[0][0] = deltaAffineIn[0];
-				dataPtr->affineTransform.m[1][0] = deltaAffineIn[1];
-				dataPtr->affineTransform.m[2][0] = deltaAffineIn[2];
-				dataPtr->affineTransform.m[0][1] = deltaAffineIn[3];
-				dataPtr->affineTransform.m[1][1] = deltaAffineIn[4];
-				dataPtr->affineTransform.m[2][1] = deltaAffineIn[5];
-				dataPtr->affineTransform.m[0][2] = 0.0;
-				dataPtr->affineTransform.m[1][2] = 0.0;
-				dataPtr->affineTransform.m[2][2] = 1.0;
+				dataPtr->leftUvToRectX = myShaderVals.leftUvToRectX;
+				dataPtr->leftUvToRectY = myShaderVals.leftUvToRectY;
+				dataPtr->rightUvToRectX = myShaderVals.rightUvToRectX;
+				dataPtr->rightUvToRectY = myShaderVals.rightUvToRectY;
+				dataPtr->cameraMatrixLeft = myShaderVals.cameraMatrixLeft;
+				dataPtr->cameraMatrixRight = myShaderVals.cameraMatrixRight;
+				dataPtr->eyeBordersLeft = myShaderVals.eyeBordersLeft;
+				dataPtr->eyeBordersRight = myShaderVals.eyeBordersRight;
+				dataPtr->offsets = myShaderVals.offsets;
+				dataPtr->affineTransform = myShaderVals.affineTransform;
 				devcon->Unmap(g_pConstantBuffer11, 0);
 				devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
 				devcon->PSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
-			}*/ 
+			}
 		}
 
 		FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
