@@ -96,23 +96,14 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	while (graphicsRender) {
 		if (updateAffineOnGraphicsThread) {
 			updateAffineOnGraphicsThread = false;
-			if (g_pConstantBuffer11) {
+			if (g_pConstantBuffer11_2) {
 				D3D11_MAPPED_SUBRESOURCE mappedResource;
-				devcon->Map(g_pConstantBuffer11, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-				ShaderVals* dataPtr = (ShaderVals*)mappedResource.pData;
-				dataPtr->leftUvToRectX = myShaderVals.leftUvToRectX;
-				dataPtr->leftUvToRectY = myShaderVals.leftUvToRectY;
-				dataPtr->rightUvToRectX = myShaderVals.rightUvToRectX;
-				dataPtr->rightUvToRectY = myShaderVals.rightUvToRectY;
-				dataPtr->cameraMatrixLeft = myShaderVals.cameraMatrixLeft;
-				dataPtr->cameraMatrixRight = myShaderVals.cameraMatrixRight;
-				dataPtr->eyeBordersLeft = myShaderVals.eyeBordersLeft;
-				dataPtr->eyeBordersRight = myShaderVals.eyeBordersRight;
-				dataPtr->offsets = myShaderVals.offsets;
-				dataPtr->affineTransform = myShaderVals.affineTransform;
-				devcon->Unmap(g_pConstantBuffer11, 0);
-				devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
-				devcon->PSSetConstantBuffers(0, 1, &g_pConstantBuffer11);
+				devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
+				dataPtr->affineTransform = myShaderVals2.affineTransform;
+				devcon->Unmap(g_pConstantBuffer11_2, 0);
+				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 			}
 		}
 
@@ -204,11 +195,28 @@ void Graphics::InitPipeline()
 	cbDesc.MiscFlags = 0;
 	cbDesc.StructureByteStride = 0;
 	// Create the buffer.
-	HRESULT hr = dev->CreateBuffer(&cbDesc, NULL, &g_pConstantBuffer11);
+	HRESULT hr = dev->CreateBuffer(&cbDesc, NULL, &g_pConstantBuffer11); 
 	if (FAILED(hr))
 	{
+		Debug("Failed first buffer");
 	}
 	else {		
+	}
+
+	D3D11_BUFFER_DESC cbDesc2;
+	cbDesc2.Usage = D3D11_USAGE_DYNAMIC;
+	cbDesc2.ByteWidth = sizeof(ShaderVals2);
+	cbDesc2.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cbDesc2.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cbDesc2.MiscFlags = 0;
+	cbDesc2.StructureByteStride = 0;
+	// Create the buffer.
+	HRESULT hr2 = dev->CreateBuffer(&cbDesc2, NULL, &g_pConstantBuffer11_2);
+	if (FAILED(hr2))
+	{
+		Debug("Failed second buffer");
+	}
+	else {
 	}
 }
 
@@ -340,6 +348,10 @@ void Graphics::CleanD3D()
 	if (g_pConstantBuffer11) {
 		g_pConstantBuffer11->Release();
 		g_pConstantBuffer11 = NULL;
+	}
+	if (g_pConstantBuffer11_2) {
+		g_pConstantBuffer11_2->Release();
+		g_pConstantBuffer11_2 = NULL;
 	}
 	if(pShaderResourceViewLeft){
 		pShaderResourceViewLeft->Release();

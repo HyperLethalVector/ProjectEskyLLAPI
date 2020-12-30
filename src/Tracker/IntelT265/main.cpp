@@ -1,9 +1,9 @@
-#include "common_header.h"
+#include "common_header.h" 
 #include <stdio.h>
 #include <sstream>
 #include <fstream>
-#include <thread>
-#include <iostream>
+#include <thread> 
+#include <iostream>  
 #define STB_IMAGE_IMPLEMENTATION 
 #include "stb_image.h"  
 #include <array>    
@@ -14,7 +14,7 @@
 #include <chrono>    
 #include <thread> 
 #include <mutex>
-#include <math.h>  
+#include <math.h>   
 #include <float.h>  
 #include "Tracker.cpp"   
 #ifdef __linux__
@@ -38,7 +38,7 @@
 #ifdef __cplusplus     
 extern "C" {
      
-#endif   
+#endif    
     bool doExit2 = false;  
     TrackerObject* to;   
 #ifdef __linux
@@ -52,7 +52,7 @@ extern "C" {
             to->DoExit3 = true; 
             to->StopTracking(); 
         }   
-    }     
+    }       
     std::thread* t3;    
     void DoFunction3() {     
         to->DoFunctionTracking();   
@@ -72,14 +72,14 @@ extern "C" {
         //toz->DoExit3 = false;  
         t3 = new std::thread(DoFunction4); 
     }
-    DLL_EXPORT float* GetLatestPose() {    
+    DLL_EXPORT float* GetLatestPose() {     
         return to->pose;  
     } 
-    DLL_EXPORT double* GetLatestAffine() {
-        return to->deltaAffineOut;
+    DLL_EXPORT float* GetLatestAffine() {
+        return to->deltaAffineOut; 
     }  
 
-    DLL_EXPORT double* GetLatestAffineTransform() {
+    DLL_EXPORT float* GetLatestAffineTransform() {
         return to->deltaAffineOut;
     } 
     DLL_EXPORT void InitializeTrackerObject() {
@@ -165,28 +165,28 @@ extern "C" {
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             m_Device = d3d->GetDevice(); 
             Debug::Log("Obtained tracker d3d device");   
-#endif
+#endif 
         }   
         else if (eventType == kUnityGfxDeviceEventShutdown) {
-        }   
-    } 
-    typedef void(*FuncCallBack)(const char* message, int color, int size); 
+        }       
+    }     
+    typedef void(*FuncCallBack)(const char* message, int color, int size);  
     static FuncCallBack callbackInstance = nullptr;   
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
-    typedef void(*FuncAffinePoseUpdateCallback)(double* poseData, int length);
+    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData, int length);
     DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) { 
         if (to != nullptr) {   
-            to->quaternionCallback = qc;   
-        }  
+            to->quaternionCallback = qc;    
+        }    
     }
-    DLL_EXPORT void RegisterDeltaAffineCallback(FuncAffinePoseUpdateCallback fdpuc) {
+    DLL_EXPORT void RegisterDeltaAffineCallback(FuncAffinePoseUpdateCallback fdpuc) { 
         if (to != nullptr) {   
             to->callbackAffinePoseUpdate = fdpuc;
         } 
-    } 
+    }  
     DLL_EXPORT void PostRenderReset() { 
         if (to != nullptr) {
             to->ResetInitialPose(); 
@@ -194,8 +194,8 @@ extern "C" {
     }
     DLL_EXPORT void ResetTrackerInitialPose() {
         if (to != nullptr) {
-            to->ResetInitialPose();
-        }
+            to->ResetInitialPose(); 
+        }  
     }
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb);   
     DLL_EXPORT void RegisterLocalizationCallback(FuncCallBack2 cb);
@@ -204,12 +204,12 @@ extern "C" {
     DLL_EXPORT void SaveOriginPose() { 
         to->SetOrigin();    
     }
-    DLL_EXPORT void SetSerialComPort(int port) {
+    DLL_EXPORT void SetSerialComPort(int port) { 
         if (to != nullptr) {
             to->usesIntegrator = true;
             to->SetComPortString(port); 
         }
-    }
+    } 
     DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
         if (to != nullptr) {
             Debug::Log("Set Render Texture Pointer");
@@ -217,56 +217,56 @@ extern "C" {
         }
     }
 }
-
+ 
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID)
 {
     if (to != nullptr) {
         to->UpdatecameraTextureGPU();
-    }
+    }                            
 }
 
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc()
 {
     return OnRenderEvent;
-}
+}    
 void Debug::Log(const char* message, Color color) {
     if (callbackInstance != nullptr)  
         callbackInstance(message, (int)color, (int)strlen(message));
-}  
-   
+}     
+     
 void  Debug::Log(const std::string message, Color color) { 
     const char* tmsg = message.c_str();  
-    if (callbackInstance != nullptr)  
+    if (callbackInstance != nullptr)   
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));  
 }
  
 void  Debug::Log(const int message, Color color) { 
     std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-} 
-
-void  Debug::Log(const char message, Color color) {
-    std::stringstream ss;
     ss << message; 
-    send_log(ss, color);
+    send_log(ss, color); 
+}      
+   
+void  Debug::Log(const char message, Color color) {
+    std::stringstream ss;  
+    ss << message;    
+    send_log(ss, color); 
 }
  
-void  Debug::Log(const float message, Color color) {
+void  Debug::Log(const float message, Color color) { 
     std::stringstream ss;
-    ss << message; 
+    ss << message;  
     send_log(ss, color);
-} 
+}  
 
 void  Debug::Log(const double message, Color color) {
-    std::stringstream ss;
+    std::stringstream ss; 
     ss << message; 
     send_log(ss, color); 
 }
 void Debug::Log(const bool message, Color color) {
     std::stringstream ss;
     if (message)
-        ss << "true"; 
+        ss << "true";  
     else
         ss << "false";  
     send_log(ss, color);
@@ -279,7 +279,7 @@ void Debug::send_log(const std::stringstream& ss, const Color& color) {
         callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
 
-//Create a callback delegate 
+//Create a callback delegate   
 void RegisterDebugCallback(FuncCallBack cb) {
     callbackInstance = cb;
 }
@@ -295,5 +295,5 @@ void RegisterObjectPoseCallback(FuncCallBack4 cb) {
 void RegisterBinaryMapCallback(FuncCallBack3 cb) {
     if (to != nullptr)
         to->callbackBinaryMap = cb;
-}
- 
+} 
+   

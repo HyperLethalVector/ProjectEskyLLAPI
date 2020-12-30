@@ -48,7 +48,7 @@ public:
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
-    typedef void(*FuncAffinePoseUpdateCallback)(double* poseData,int length);
+    typedef void(*FuncAffinePoseUpdateCallback)(float *poseData, int length);
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
@@ -66,15 +66,23 @@ public:
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
-    double* deltaAffineOut = new double[9]{ 1,0,0,
-                                     0,1,0, 
-                                     0,0,1};
+    float* deltaAffineOut = new float[16]{ 1,0,0,0,
+                                     0,1,0,0,
+                                     0,0,1,0,
+                                     0,0,0,1 };
     float* hardCodedProjection = new float[16]{
-                                                1.427334f,  0, 0,0,
-                                                0,2.537483f,0, 0, 
-                                                0,0, -1.0002,-0.20002,
-                                                0,0,-1, 0 
+                                                1.427334, 0,    0.5, 0.0,
+                                                0  , 2.537483f, 0.5, 0.0,
+                                                0  , 0   , -1.0, -0.2,
+                                                0  , 0   , -1.0, 1.0
                                             };
+    float* hardCodedExtrinsic = new float[16]{
+                                            1.0,0.0,0.0,0.0,
+                                            0.0,1.0,0.0,0.0,
+                                            0.0,0.0,1.0,0.0,
+                                            0.0,0.0,0.0,1.0
+    };
+
     //get intrinsics as float array
     // the fisheye mat
     cv::Mat fisheye_mat;
@@ -83,6 +91,11 @@ public:
     cv::Mat lm1, lm2;
     cv::Mat affineTransform;
     rs2_pose object_in_world_pose_frame;
+    EulerAngles eulerAnglesPrev;
+    cv::Point3f transPrev;
+
+    EulerAngles eulerAnglesPost;
+    cv::Point3f transPost;
     bool hasLocalized = false;
     unsigned char* fileLocation;
     int textureWidth = 0;
@@ -217,22 +230,34 @@ public:
         ret[2][1] = 0.0f;
         ret[2][2] = 1.0f;
         ret[2][3] = 0.0f;
-
-        ret[3][0] = 0.0f;
-        ret[3][1] = 0.0f;
-        ret[3][2] = 0.0f;
-        ret[3][3] = 1.0f;
-        std::memcpy(inputArr.data, ret, 4 * 4 * sizeof(float));
+        std::memcpy(inputArr.data, ret, 4 * 3 * sizeof(float));
     }
-    cv::Point2f MultiplyPoint(cv::Mat dP, cv::Mat P, const cv::Point2f p) //multiply RenderPlane point by the deltaTransformationMatrix
-    {
-        cv::Mat_<float> src(4/*rows*/, 1 /* cols */);
-        src(0, 0) = p.x;
-        src(1, 0) = p.y;
-        src(2, 0) = 1.0;
-        src(3, 0) = 1.0;
-        cv::Mat_<float> dst = P * dP * P.inv() * src; //Inv Proj, delta pose, proj
-        return cv::Point2f(dst(0, 0), dst(1, 0));
+    cv::Point2f MultiplyPoint(cv::Mat projection, cv::Mat intrinsics, cv::Mat deltaPose, const cv::Point2f point) //multiply RenderPlane point by the deltaTransformationMatrix
+    {         
+        cv::Mat_<float> UVCoordinateInitial(4, 1);
+        UVCoordinateInitial(0, 0) = point.x;//U
+        UVCoordinateInitial(1, 0) = point.y; //V
+        UVCoordinateInitial(2, 0) = 1.0;//Weight 1
+        UVCoordinateInitial(3, 0) = 1.0;//Weight 2
+
+        cv::Mat homography = intrinsics * projection; //compute the homography
+        cv::Mat_<float> TwoDUVto3DSpace = homography * UVCoordinateInitial; //Project our UV point into 3D space
+        cv::Mat transformed3DPoint = deltaPose * TwoDUVto3DSpace; // transform according to the delta pose
+        cv::Mat UVCoordinateFinal = homography.inv() * transformed3DPoint; //transform 3D point back into UV space
+        
+        //we have a UV with a modified Z, need to normalize
+        float newW = (UVCoordinateFinal.at<float>(3, 0));
+        float newZ = (UVCoordinateFinal.at<float>(2, 0))/newW;
+        float newX = ((UVCoordinateFinal.at<float>(0, 0))/newW);
+        float newY = ((UVCoordinateFinal.at<float>(1, 0))/newW);
+        ostringstream oss2;      
+        newZ = newZ / newZ;//normalize
+
+        oss2 << "PrePoint: " << point.x << "," << point.y << "," << 1.0 << "," << 1.0 << std::endl;
+        oss2 << "PostPoint: " << newX << "," << newY << "," << newZ << "," << newW << std::endl;
+
+        Debug::Log(oss2.str());
+        return cv::Point2f(newX, newY); //The 'new' Screen space coordinate
     }
     void CopyTransformationMatrix(cv::Mat& inputArr,float tx, float ty, float tz, float rx, float ry, float rz, float rw)
     {
@@ -248,26 +273,55 @@ public:
 
         float ret[4][4];
         ret[0][0] = 1.0f - 2 * (yy + zz);
-        ret[0][1] = 2 * (xy - wz);
-        ret[0][2] = 2 * (wy + xz);
-        ret[0][3] = 0.0f;
-
-        ret[1][0] = 2 * (xy + wz);
-        ret[1][1] = 1.0f - 2 * (xx + zz);
-        ret[1][2] = 2 * (yz - wx);
-        ret[1][3] = 0.0f;
-
-        ret[2][0] = 2 * (xz - wy);
-        ret[2][1] = 2 * (yz + wx);
-        ret[2][2] = 1.0f - 2 * (xx + yy);
-        ret[2][3] = 0.0f;
-
+        ret[1][0] = 2 * (xy - wz);
+        ret[2][0] = 2 * (wy + xz);
         ret[3][0] = tx;
+
+        ret[0][1] = 2 * (xy + wz);
+        ret[1][1] = 1.0f - 2 * (xx + zz);
+        ret[2][1] = 2 * (yz - wx);
         ret[3][1] = ty;
+
+        ret[0][2] = 2 * (xz - wy);
+        ret[1][2] = 2 * (yz + wx);
+        ret[2][2] = 1.0f - 2 * (xx + yy);
         ret[3][2] = tz;
+
+        ret[0][3] = 0.0f;
+        ret[1][3] = 0.0f;
+        ret[2][3] = 0.0f;
         ret[3][3] = 1.0f;
+
         std::memcpy(inputArr.data, ret, 4 * 4 * sizeof(float));
     }
+    cv::Mat eulerAnglesToRotationMatrix(float x, float y, float z)
+    {
+        // Calculate rotation about x axis
+        cv::Mat R_x = (cv::Mat_<float>(3, 3) <<
+            1, 0, 0,
+            0, cos(x), -sin(x),
+            0, sin(x), cos(x)
+            );
+
+        // Calculate rotation about y axis
+        cv::Mat R_y = (cv::Mat_<float>(3, 3) <<
+            cos(y), 0, sin(y),
+            0, 1, 0,
+            -sin(y), 0, cos(y)
+            );
+
+        // Calculate rotation about z axis
+        cv::Mat R_z = (cv::Mat_<float>(3, 3) <<
+            cos(z), -sin(z), 0,
+            sin(z), cos(z), 0,
+            0, 0, 1);
+
+
+        // Combined rotation matrix
+        cv::Mat R = R_z * R_y * R_x;
+        return R;
+    }
+
     void updateKalmanFilter( cv::KalmanFilter &KF, cv::Mat &measurement,
         rs2_pose& predicted, EulerAngles& ea)
     {
@@ -280,7 +334,6 @@ public:
         predicted.translation.y = estimated.at<double>(1);
         predicted.translation.z = estimated.at<double>(2);
         // Estimated euler angles
-
 //        cv::Mat eulers_estimated(3, 1, CV_64F);
         ea.z = estimated.at<double>(9);
         ea.x = estimated.at<double>(10);
@@ -518,26 +571,30 @@ public:
                 Debug::Log("Restarted the t265/1",Color::Green);  
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             }
+            Serial->CloseSerialPort();
 #endif
         }
         while (!DoExit3) {
             try {
-                cv::Point2f srcTri[4];
+                cv::Point2f srcTri[3];
                 srcTri[0] = cv::Point2f(0.f, 0.f);
                 srcTri[1] = cv::Point2f(1.0f, 0.f);
                 srcTri[2] = cv::Point2f(0.0f, 1.0f);
-                srcTri[3] = cv::Point2f(1.0f, 1.0f);
 
                 cv::Point2f dstTri[3];
                 dstTri[0] = cv::Point2f(0.f, 0.f);
                 dstTri[1] = cv::Point2f(1.0f, 0.f);
                 dstTri[2] = cv::Point2f(0.0f, 1.0f);
-                dstTri[3] = cv::Point2f(1.0f, 1.0f);
 
-                cv::Mat projMat = cv::Mat(4, 4, CV_32F, hardCodedProjection);
+                cv::Mat projMatVirtual = cv::Mat(4, 4, CV_32F, hardCodedProjection);
+                cv::Mat intrinsicsVirtual = cv::Mat(4, 4, CV_32F, hardCodedExtrinsic);
+                
                 cv::Mat initialPose = cv::Mat(4, 4, CV_32F); SetIdentity(initialPose);
                 cv::Mat finalPose = cv::Mat(4, 4, CV_32F); SetIdentity(finalPose);
                 cv::Mat deltaPose = cv::Mat(4, 4, CV_32F); SetIdentity(deltaPose);
+
+
+
                 cv::Mat aff = cv::Mat(3, 4, CV_32F);
                 float AngleToDeg = (3.14f / 180.0f);
                 float* f = new float[4] {0.0f, 0.0f, 0.0f, 0.0f};
@@ -618,41 +675,61 @@ public:
                             ToEulerAngles(qq, eu);
                             fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                             updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
-                        }
+                        } 
                         if (quaternionCallback != nullptr) {
                             quaternionCallback(f, eu.x, eu.y, eu.z);
                         }
                         pose[3] = f[0];
                         pose[4] = f[1];
-                        pose[5] = f[2];
+                        pose[5] = f[2]; 
                         pose[6] = f[3];
                         if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
                             resetInitialPose = false;
-                            CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]);
+                            CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], -pose[4], pose[3], -pose[5], pose[6]); //then we calculate the new pose (unrendered)
                         }
-                        CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]); //then we calculate the new pose (unrendered)
-                        deltaPose = finalPose.inv() * initialPose; //then we calculate a transformation from final -> initial (to reproject the inital frame into our new coordinates
-                        //we then need to calculate the affine transformation, first multiply the three corners with the delta pose
-                        for (int i = 0; i < 4; i++) {
-                            dstTri[i] = MultiplyPoint(deltaPose, projMat, srcTri[i]);
+                        CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], -pose[4], pose[3], -pose[5], pose[6]); //then we calculate the new pose (unrendered)
+             
+                        deltaPose = (initialPose.inv() * finalPose);
+                        try {
+                            for (int i = 0; i < 3; i++) {
+                                dstTri[i] = MultiplyPoint(projMatVirtual, intrinsicsVirtual, deltaPose, srcTri[i]);
+                            } 
                         }
-                        vector<cv::Point2f> pointsPre; 
+                        catch (std::exception& e) {
+                            Debug::Log(e.what(), Color::Red);
+                        }
+                        cv::Mat homography = intrinsicsVirtual * projMatVirtual; //compute the homography
+                        cv::Mat between = homography.inv() * initialPose.inv() * finalPose * homography;
+
+                        vector<cv::Point2f> pointsPre;
                         vector<cv::Point2f> pointsPost;
-                        for (int i = 0; i < 4; i++) {
+                        for (int i = 0; i < 3; i++) {
                             pointsPre.push_back(srcTri[i]);
                             pointsPost.push_back(dstTri[i]);
                         }
-                        //Get the affine transform
-                        aff = cv::getPerspectiveTransform(pointsPre, pointsPost);
-                        // copy the affine transform over
-                        vector<double> vec;
-                        vec.assign((double*)aff.datastart, (double*)aff.dataend);
-                        for (int i = 0; i < 9; i++) {
-                            deltaAffineOut[i] = vec[i];
-                        }
-                        if (callbackAffinePoseUpdate != nullptr) {
-                            callbackAffinePoseUpdate(deltaAffineOut, 9);
-                        }
+
+                         
+                            aff = cv::getAffineTransform(pointsPre, pointsPost);
+                            vector<float> vec;
+                            vec.assign((float*)deltaPose.datastart, (float*)deltaPose.dataend);
+                            //                  [x1, x2, tx]
+                          //                    [y1, y2, ty]
+                        //                      [0,  0,  1]
+//                            deltaAffineOut[0] = vec[0]; deltaAffineOut[1] = vec[1]; deltaAffineOut[2] = vec[2]; deltaAffineOut[3] = 0.0;
+ //                           deltaAffineOut[4] = vec[3]; deltaAffineOut[5] = vec[4]; deltaAffineOut[6] = vec[5]; deltaAffineOut[7] = 0.0;
+  //                          deltaAffineOut[8] = 0.0f;   deltaAffineOut[9] = 0.0f;   deltaAffineOut[10] = 0.0f;  deltaAffineOut[11] = 0.0;
+   //                         deltaAffineOut[12] = 0.0; deltaAffineOut[13] = 0.0; deltaAffineOut[14] = 0.0; deltaAffineOut[15] = 1.0;
+      //                      deltaAffineOut[0] = vec[0];  deltaAffineOut[1] = vec[1]; deltaAffineOut[2] = vec[2]; deltaAffineOut[3] = 0.0;  
+    //                        deltaAffineOut[4] = vec[3]; deltaAffineOut[5] = vec[4]; deltaAffineOut[6] = vec[5];  deltaAffineOut[7] = 0.0; 
+  //                          deltaAffineOut[8] = vec[6]; deltaAffineOut[9] = vec[7]; deltaAffineOut[10] = vec[8]; deltaAffineOut[11] = 0.0;
+//                            deltaAffineOut[12] = 0.0; deltaAffineOut[13] = 0.0; deltaAffineOut[14] = 0.0; deltaAffineOut[15] = 1.0;
+                            for (int i = 0; i < 15; i++) {
+                                deltaAffineOut[i] = vec[i];
+                            }
+                            if (callbackAffinePoseUpdate != nullptr) {
+                                callbackAffinePoseUpdate(deltaAffineOut, 15);
+                            } 
+                        
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
@@ -793,11 +870,13 @@ public:
                     serialPort.Write("r\r\n");
                     serialPort.Close();
 #else
+                    Debug::Log("Attempting to restart after finishing", Color::Green);
                     Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
                     if (Serial->WriteSerialPort("r\r\n")) {
                         Debug::Log("Restarted the t265/1", Color::Green);
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                     }
+                    Serial->CloseSerialPort();
 #endif
                 }
                 pipe.stop(); 
