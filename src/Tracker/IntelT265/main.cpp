@@ -76,11 +76,11 @@ extern "C" {
         return to->pose;  
     } 
     DLL_EXPORT float* GetLatestAffine() {
-        return to->deltaAffineOut; 
+        return to->deltaPoseArray; 
     }  
 
     DLL_EXPORT float* GetLatestAffineTransform() {
-        return to->deltaAffineOut;
+        return to->deltaPoseArray;
     } 
     DLL_EXPORT void InitializeTrackerObject() {
         if (to == nullptr) { 
@@ -169,22 +169,28 @@ extern "C" {
         }   
         else if (eventType == kUnityGfxDeviceEventShutdown) {
         }       
-    }     
+    }      
     typedef void(*FuncCallBack)(const char* message, int color, int size);  
     static FuncCallBack callbackInstance = nullptr;   
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
+    typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn,float* matrixToReturnInv, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
     typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
-    typedef void(*FuncAffinePoseUpdateCallback)(float* poseData, int length);
-    DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) { 
+    typedef void(*FuncDeltaPoseUpdateCallback)(float *poseData,float *poseDataInv, int length);
+    DLL_EXPORT void RegisterMatrixDeltaCallback(FuncMatrixDeltaConvert callback) {
+        if (to != nullptr) {
+            to->callbackMatrixConvert = callback;
+        }
+    }
+    DLL_EXPORT void RegisterQuaternionConversionCallback(QuaternionCallback qc) {  
         if (to != nullptr) {   
             to->quaternionCallback = qc;    
         }    
     }
-    DLL_EXPORT void RegisterDeltaAffineCallback(FuncAffinePoseUpdateCallback fdpuc) { 
+    DLL_EXPORT void RegisterDeltaAffineCallback(FuncDeltaPoseUpdateCallback fdpuc) {
         if (to != nullptr) {   
-            to->callbackAffinePoseUpdate = fdpuc;
+            to->callbackDeltaPoseUpdate = fdpuc;
         } 
     }  
     DLL_EXPORT void PostRenderReset() { 

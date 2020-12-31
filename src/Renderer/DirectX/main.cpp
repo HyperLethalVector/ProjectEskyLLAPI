@@ -185,10 +185,10 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPlugin
 		windowGraphics[selectedWnd].SetTexturePtrLeft(texturePtr);
 	}     
 }
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetAffineTransform(int windowID, float* affineTransform) {
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowID, float* delta, float* deltaInverse) {
 	if (windowIds.count(windowID)) { 
 		selectedWnd = windowIds[windowID];
-		windowGraphics[selectedWnd].SetAffine(affineTransform);
+		windowGraphics[selectedWnd].SetAffine(delta,deltaInverse);
 	} 
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowID,
@@ -198,12 +198,14 @@ float rightUvToRectX[],// = { 0.0 };
 float rightUvToRectY[],// = { 0.0 };
 float CameraMatrixLeft[],// = { 0.0 };
 float CameraMatrixRight[],// = { 0.0 };
+float InvCameraMatrixLeft[],// = { 0.0 };
+float InvCameraMatrixRight[],// = { 0.0 };
 float leftOffset[],// = { 0.0 };
 float rightOffset[],// = { 0.0 };  
 float eyeBorders[]) {
 	if (windowIds.count(windowID)) {
-		selectedWnd = windowIds[windowID];
-		windowGraphics[selectedWnd].SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, CameraMatrixLeft, CameraMatrixRight, leftOffset, rightOffset, eyeBorders);
+		selectedWnd = windowIds[windowID]; 
+		windowGraphics[selectedWnd].SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, CameraMatrixLeft, CameraMatrixRight,InvCameraMatrixLeft,InvCameraMatrixRight, leftOffset, rightOffset, eyeBorders);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdRight(int windowId, void* texturePtr) {

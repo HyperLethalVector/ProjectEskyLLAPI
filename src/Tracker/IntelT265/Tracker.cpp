@@ -48,14 +48,17 @@ public:
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
-    typedef void(*FuncAffinePoseUpdateCallback)(float *poseData, int length);
+    typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn, float* inverseToReturn, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
+
+    typedef void(*FuncDeltaPoseUpdateCallback)(float *poseData,float *poseDataInv, int length);
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
     FuncCallBack2 callbackLocalization = nullptr;
     FuncCallBack3 callbackBinaryMap = nullptr;
     FuncCallBack4 callbackObjectPoseReceived = nullptr;
-    FuncAffinePoseUpdateCallback callbackAffinePoseUpdate = nullptr;
+    FuncMatrixDeltaConvert callbackMatrixConvert = nullptr;
+    FuncDeltaPoseUpdateCallback callbackDeltaPoseUpdate = nullptr;
 #ifdef __linux__ //OGL
 
 #else
@@ -65,8 +68,15 @@ public:
     bool resetInitialPose = true;
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
+    float* poseInitial = new float[7]{ 0,0,0,0,0,0,0 };
+
+
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
-    float* deltaAffineOut = new float[16]{ 1,0,0,0,
+    float* deltaPoseArray = new float[16]{ 1,0,0,0,
+                                     0,1,0,0,
+                                     0,0,1,0,
+                                     0,0,0,1 };
+    float* deltaPoseInvArray = new float[16]{ 1,0,0,0,
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
@@ -685,50 +695,19 @@ public:
                         pose[6] = f[3];
                         if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
                             resetInitialPose = false;
-                            CopyTransformationMatrix(initialPose, pose[0], pose[1], pose[2], -pose[4], pose[3], -pose[5], pose[6]); //then we calculate the new pose (unrendered)
-                        }
-                        CopyTransformationMatrix(finalPose, pose[0], pose[1], pose[2], -pose[4], pose[3], -pose[5], pose[6]); //then we calculate the new pose (unrendered)
-             
-                        deltaPose = (initialPose.inv() * finalPose);
-                        try {
-                            for (int i = 0; i < 3; i++) {
-                                dstTri[i] = MultiplyPoint(projMatVirtual, intrinsicsVirtual, deltaPose, srcTri[i]);
-                            } 
-                        }
-                        catch (std::exception& e) {
-                            Debug::Log(e.what(), Color::Red);
-                        }
-                        cv::Mat homography = intrinsicsVirtual * projMatVirtual; //compute the homography
-                        cv::Mat between = homography.inv() * initialPose.inv() * finalPose * homography;
-
-                        vector<cv::Point2f> pointsPre;
-                        vector<cv::Point2f> pointsPost;
-                        for (int i = 0; i < 3; i++) {
-                            pointsPre.push_back(srcTri[i]);
-                            pointsPost.push_back(dstTri[i]);
-                        }
-
-                         
-                            aff = cv::getAffineTransform(pointsPre, pointsPost);
-                            vector<float> vec;
-                            vec.assign((float*)deltaPose.datastart, (float*)deltaPose.dataend);
-                            //                  [x1, x2, tx]
-                          //                    [y1, y2, ty]
-                        //                      [0,  0,  1]
-//                            deltaAffineOut[0] = vec[0]; deltaAffineOut[1] = vec[1]; deltaAffineOut[2] = vec[2]; deltaAffineOut[3] = 0.0;
- //                           deltaAffineOut[4] = vec[3]; deltaAffineOut[5] = vec[4]; deltaAffineOut[6] = vec[5]; deltaAffineOut[7] = 0.0;
-  //                          deltaAffineOut[8] = 0.0f;   deltaAffineOut[9] = 0.0f;   deltaAffineOut[10] = 0.0f;  deltaAffineOut[11] = 0.0;
-   //                         deltaAffineOut[12] = 0.0; deltaAffineOut[13] = 0.0; deltaAffineOut[14] = 0.0; deltaAffineOut[15] = 1.0;
-      //                      deltaAffineOut[0] = vec[0];  deltaAffineOut[1] = vec[1]; deltaAffineOut[2] = vec[2]; deltaAffineOut[3] = 0.0;  
-    //                        deltaAffineOut[4] = vec[3]; deltaAffineOut[5] = vec[4]; deltaAffineOut[6] = vec[5];  deltaAffineOut[7] = 0.0; 
-  //                          deltaAffineOut[8] = vec[6]; deltaAffineOut[9] = vec[7]; deltaAffineOut[10] = vec[8]; deltaAffineOut[11] = 0.0;
-//                            deltaAffineOut[12] = 0.0; deltaAffineOut[13] = 0.0; deltaAffineOut[14] = 0.0; deltaAffineOut[15] = 1.0;
-                            for (int i = 0; i < 15; i++) {
-                                deltaAffineOut[i] = vec[i];
+                            for (int i = 0; i < 7; i++) {
+                                poseInitial[i] = pose[i];
                             }
-                            if (callbackAffinePoseUpdate != nullptr) {
-                                callbackAffinePoseUpdate(deltaAffineOut, 15);
-                            } 
+                        }
+                        if (callbackMatrixConvert != nullptr) {
+                            callbackMatrixConvert(deltaPoseArray,deltaPoseInvArray,
+                                poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
+                                pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
+                            );
+                        }
+                        if (callbackDeltaPoseUpdate != nullptr) {
+                            callbackDeltaPoseUpdate(deltaPoseArray,deltaPoseInvArray, 15);
+                        } 
                         
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
