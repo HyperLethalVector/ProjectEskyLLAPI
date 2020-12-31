@@ -176,9 +176,9 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRectById(int
 	if (windowIds.count(windowId)) {
 		HWND hwnd = windowIds[windowId];
 		windowGraphics[hwnd].SetSize(width, height);
-		SetWindowPos(hwnd, 0, left, top, width, height, 0);
-	}   
-}
+		SetWindowPos(hwnd, 0, left, top, width, height, 0);   
+	}    
+} 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdLeft(int windowId, void* texturePtr) {
 	if (windowIds.count(windowId)) { 
 		selectedWnd = windowIds[windowId];
@@ -191,6 +191,12 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowI
 		windowGraphics[selectedWnd].SetAffine(delta,deltaInverse);
 	} 
 } 
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetEyeOffset(int windowID, float* eyeOffsetLeft, float* eyeOffsetRight, float* eyeOffsetLeftInv, float* eyeOffsetRightInv) {
+	if (windowIds.count(windowID)) {
+		selectedWnd = windowIds[windowID];
+		windowGraphics[selectedWnd].SetEyeOffset(eyeOffsetLeft, eyeOffsetRight,eyeOffsetLeftInv,eyeOffsetRightInv);
+	}
+}
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowID,
 float leftUvToRectX[],// = { 0.0 };
 float leftUvToRectY[],// = { 0.0 }; 

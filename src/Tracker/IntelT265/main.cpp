@@ -166,10 +166,10 @@ extern "C" {
             m_Device = d3d->GetDevice(); 
             Debug::Log("Obtained tracker d3d device");   
 #endif 
-        }   
+        }     
         else if (eventType == kUnityGfxDeviceEventShutdown) {
-        }       
-    }      
+        }            
+    }       
     typedef void(*FuncCallBack)(const char* message, int color, int size);  
     static FuncCallBack callbackInstance = nullptr;   
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 

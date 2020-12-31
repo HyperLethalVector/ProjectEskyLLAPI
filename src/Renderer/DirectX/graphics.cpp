@@ -102,6 +102,10 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
 				dataPtr->delta = myShaderVals2.delta;
 				dataPtr->deltaInverse = myShaderVals2.deltaInverse;
+				dataPtr->eyeOffsetPoseLeft = myShaderVals2.eyeOffsetPoseLeft;
+				dataPtr->eyeOffsetPoseLeftInv = myShaderVals2.eyeOffsetPoseLeft;
+				dataPtr->eyeOffsetPoseRight = myShaderVals2.eyeOffsetPoseRight;
+				dataPtr->eyeOffsetPoseRightInv = myShaderVals2.eyeOffsetPoseRightInv;
 				devcon->Unmap(g_pConstantBuffer11_2, 0);
 				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
