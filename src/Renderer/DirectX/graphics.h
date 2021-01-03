@@ -40,12 +40,10 @@ typedef struct ShaderVals {//float is 4 bytes
 }ShaderVals;
  
 typedef struct ShaderVals2 {
-	DirectX::XMFLOAT4X4 delta;
-	DirectX::XMFLOAT4X4 deltaInverse;
-	DirectX::XMFLOAT4X4 eyeOffsetPoseLeft;
-	DirectX::XMFLOAT4X4 eyeOffsetPoseRight;
-	DirectX::XMFLOAT4X4 eyeOffsetPoseLeftInv;
-	DirectX::XMFLOAT4X4 eyeOffsetPoseRightInv;
+	DirectX::XMFLOAT4X4 deltaPoseLeft;
+	DirectX::XMFLOAT4X4 deltaPoseLeftInverse;
+	DirectX::XMFLOAT4X4 deltaPoseRight;
+	DirectX::XMFLOAT4X4 deltaPoseRightInverse;
 }ShaderVals2;
 class Graphics {
 private:
@@ -118,135 +116,16 @@ public:
 
 		}
 	} 
-	void SetEyeOffset(float* inputEyeLeft,float* inputEyeRight, float* inputEyeLeftInv, float* inputEyeRightInv) {
-		myShaderVals2.eyeOffsetPoseLeft.m[0][0] = inputEyeLeft[0];
-		myShaderVals2.eyeOffsetPoseLeft.m[1][0] = inputEyeLeft[1]; 
-		myShaderVals2.eyeOffsetPoseLeft.m[2][0] = inputEyeLeft[2];
-		myShaderVals2.eyeOffsetPoseLeft.m[3][0] = inputEyeLeft[3];
 
-		myShaderVals2.eyeOffsetPoseLeft.m[0][1] = inputEyeLeft[4];
-		myShaderVals2.eyeOffsetPoseLeft.m[1][1] = inputEyeLeft[5];
-		myShaderVals2.eyeOffsetPoseLeft.m[2][1] = inputEyeLeft[6];
-		myShaderVals2.eyeOffsetPoseLeft.m[3][1] = inputEyeLeft[7];
-
-		myShaderVals2.eyeOffsetPoseLeft.m[0][2] = inputEyeLeft[8];
-		myShaderVals2.eyeOffsetPoseLeft.m[1][2] = inputEyeLeft[9];
-		myShaderVals2.eyeOffsetPoseLeft.m[2][2] = inputEyeLeft[10];
-		myShaderVals2.eyeOffsetPoseLeft.m[3][2] = inputEyeLeft[11];
-
-		myShaderVals2.eyeOffsetPoseLeft.m[0][3] = inputEyeLeft[12];
-		myShaderVals2.eyeOffsetPoseLeft.m[1][3] = inputEyeLeft[13];
-		myShaderVals2.eyeOffsetPoseLeft.m[2][3] = inputEyeLeft[14];
-		myShaderVals2.eyeOffsetPoseLeft.m[3][3] = inputEyeLeft[15];
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][0] = inputEyeRight[0];
-		myShaderVals2.eyeOffsetPoseRight.m[1][0] = inputEyeRight[1];
-		myShaderVals2.eyeOffsetPoseRight.m[2][0] = inputEyeRight[2];
-		myShaderVals2.eyeOffsetPoseRight.m[3][0] = inputEyeRight[3];
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][1] = inputEyeRight[4];
-		myShaderVals2.eyeOffsetPoseRight.m[1][1] = inputEyeRight[5];
-		myShaderVals2.eyeOffsetPoseRight.m[2][1] = inputEyeRight[6];
-		myShaderVals2.eyeOffsetPoseRight.m[3][1] = inputEyeRight[7];
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][2] = inputEyeRight[8];
-		myShaderVals2.eyeOffsetPoseRight.m[1][2] = inputEyeRight[9];
-		myShaderVals2.eyeOffsetPoseRight.m[2][2] = inputEyeRight[10];
-		myShaderVals2.eyeOffsetPoseRight.m[3][2] = inputEyeRight[11];
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][3] = inputEyeRight[12];
-		myShaderVals2.eyeOffsetPoseRight.m[1][3] = inputEyeRight[13];
-		myShaderVals2.eyeOffsetPoseRight.m[2][3] = inputEyeRight[14];
-		myShaderVals2.eyeOffsetPoseRight.m[3][3] = inputEyeRight[15];
-		//Inverse Matricies
-
-		myShaderVals2.eyeOffsetPoseLeftInv.m[0][0] = inputEyeLeftInv[0];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[1][0] = inputEyeLeftInv[1];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[2][0] = inputEyeLeftInv[2];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[3][0] = inputEyeLeftInv[3];
-
-		myShaderVals2.eyeOffsetPoseLeftInv.m[0][1] = inputEyeLeftInv[4];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[1][1] = inputEyeLeftInv[5];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[2][1] = inputEyeLeftInv[6];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[3][1] = inputEyeLeftInv[7];
-
-		myShaderVals2.eyeOffsetPoseLeftInv.m[0][2] = inputEyeLeftInv[8];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[1][2] = inputEyeLeftInv[9];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[2][2] = inputEyeLeftInv[10];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[3][2] = inputEyeLeftInv[11];
-
-		myShaderVals2.eyeOffsetPoseLeftInv.m[0][3] = inputEyeLeftInv[12];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[1][3] = inputEyeLeftInv[13];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[2][3] = inputEyeLeftInv[14];
-		myShaderVals2.eyeOffsetPoseLeftInv.m[3][3] = inputEyeLeftInv[15];
-
-		myShaderVals2.eyeOffsetPoseRightInv.m[0][0] = inputEyeRightInv[0];
-		myShaderVals2.eyeOffsetPoseRightInv.m[1][0] = inputEyeRightInv[1];
-		myShaderVals2.eyeOffsetPoseRightInv.m[2][0] = inputEyeRightInv[2];
-		myShaderVals2.eyeOffsetPoseRightInv.m[3][0] = inputEyeRightInv[3];
-
-		myShaderVals2.eyeOffsetPoseRightInv.m[0][1] = inputEyeRightInv[4];
-		myShaderVals2.eyeOffsetPoseRightInv.m[1][1] = inputEyeRightInv[5];
-		myShaderVals2.eyeOffsetPoseRightInv.m[2][1] = inputEyeRightInv[6];
-		myShaderVals2.eyeOffsetPoseRightInv.m[3][1] = inputEyeRightInv[7];
-
-		myShaderVals2.eyeOffsetPoseRightInv.m[0][2] = inputEyeRightInv[8];
-		myShaderVals2.eyeOffsetPoseRightInv.m[1][2] = inputEyeRightInv[9];
-		myShaderVals2.eyeOffsetPoseRightInv.m[2][2] = inputEyeRightInv[10];
-		myShaderVals2.eyeOffsetPoseRightInv.m[3][2] = inputEyeRightInv[11];
-
-		myShaderVals2.eyeOffsetPoseRightInv.m[0][3] = inputEyeRightInv[12];
-		myShaderVals2.eyeOffsetPoseRightInv.m[1][3] = inputEyeRightInv[13];
-		myShaderVals2.eyeOffsetPoseRightInv.m[2][3] = inputEyeRightInv[14];
-		myShaderVals2.eyeOffsetPoseRightInv.m[3][3] = inputEyeRightInv[15];
-
-
-		updateAffineOnGraphicsThread = true;
-	}
-	void SetAffine(float* inputDelta, float* inputdeltaInverse) {
-		myShaderVals2.delta.m[0][0] = inputDelta[0];
-		myShaderVals2.delta.m[1][0] = inputDelta[1];
-		myShaderVals2.delta.m[2][0] = inputDelta[2];
-		myShaderVals2.delta.m[3][0] = inputDelta[3];
-
-
-		myShaderVals2.delta.m[0][1] = inputDelta[4];
-		myShaderVals2.delta.m[1][1] = inputDelta[5];
-		myShaderVals2.delta.m[2][1] = inputDelta[6];
-		myShaderVals2.delta.m[3][1] = inputDelta[7];
-
-		myShaderVals2.delta.m[0][2] = inputDelta[8];
-		myShaderVals2.delta.m[1][2] = inputDelta[9];
-		myShaderVals2.delta.m[2][2] = inputDelta[10];
-		myShaderVals2.delta.m[3][2] = inputDelta[11];
-
-		myShaderVals2.delta.m[0][3] = inputDelta[12];
-		myShaderVals2.delta.m[1][3] = inputDelta[13];
-		myShaderVals2.delta.m[2][3] = inputDelta[14];
-		myShaderVals2.delta.m[3][3] = inputDelta[15];
-
-
-		myShaderVals2.deltaInverse.m[0][0] = inputdeltaInverse[0];
-		myShaderVals2.deltaInverse.m[1][0] = inputdeltaInverse[1];
-		myShaderVals2.deltaInverse.m[2][0] = inputdeltaInverse[2];
-		myShaderVals2.deltaInverse.m[3][0] = inputdeltaInverse[3];
-
-
-		myShaderVals2.deltaInverse.m[0][1] = inputdeltaInverse[4];
-		myShaderVals2.deltaInverse.m[1][1] = inputdeltaInverse[5];
-		myShaderVals2.deltaInverse.m[2][1] = inputdeltaInverse[6];
-		myShaderVals2.deltaInverse.m[3][1] = inputdeltaInverse[7];
-
-		myShaderVals2.deltaInverse.m[0][2] = inputdeltaInverse[8];
-		myShaderVals2.deltaInverse.m[1][2] = inputdeltaInverse[9];
-		myShaderVals2.deltaInverse.m[2][2] = inputdeltaInverse[10];
-		myShaderVals2.deltaInverse.m[3][2] = inputdeltaInverse[11];
-
-		myShaderVals2.deltaInverse.m[0][3] = inputdeltaInverse[12];
-		myShaderVals2.deltaInverse.m[1][3] = inputdeltaInverse[13];
-		myShaderVals2.deltaInverse.m[2][3] = inputdeltaInverse[14];
-		myShaderVals2.deltaInverse.m[3][3] = inputdeltaInverse[15];
-
+	void SetAffine(float* inputDeltaLeft, float* inputdeltaInverseLeft, float* inputDeltaRight, float* inputdeltaInverseRight) {
+		for (int x = 0; x < 4; x++) {
+			for (int y = 0; y < 4; y++) {
+				myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
+				myShaderVals2.deltaPoseLeftInverse.m[x][y] = inputdeltaInverseLeft[y * 4 + x];
+				myShaderVals2.deltaPoseRight.m[x][y] = inputDeltaRight[y * 4 + x];
+				myShaderVals2.deltaPoseRightInverse.m[x][y] = inputdeltaInverseRight[y * 4 + x];
+			}
+		}
 		updateAffineOnGraphicsThread = true;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
@@ -276,41 +155,22 @@ public:
 				myShaderVals.InvCameraMatrixRight.m[x][y] = InvCameraMatrixRight[y * 4 + x];
 			}
 		}
-		myShaderVals2.delta.m[0][0] = 1.0;
-		myShaderVals2.delta.m[1][0] = 0.0;
-		myShaderVals2.delta.m[2][0] = 0.0;
-		myShaderVals2.delta.m[0][1] = 0.0; 
-		myShaderVals2.delta.m[1][1] = 1.0;
-		myShaderVals2.delta.m[2][1] = 0.0;
-		myShaderVals2.delta.m[0][2] = 0.0;
-		myShaderVals2.delta.m[1][2] = 0.0;
-		myShaderVals2.delta.m[2][2] = 1.0;
-		myShaderVals2.delta.m[3][3] = 1.0;
-
-		myShaderVals2.deltaInverse.m[0][0] = 1.0;
-		myShaderVals2.deltaInverse.m[1][1] = 1.0;
-		myShaderVals2.deltaInverse.m[2][2] = 1.0;
-		myShaderVals2.deltaInverse.m[3][3] = 1.0;
-
-		myShaderVals2.eyeOffsetPoseLeft.m[0][0] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[1][1] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[2][2] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[3][3] = 1.0;
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][0] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[1][1] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[2][2] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[3][3] = 1.0;
-
-		myShaderVals2.eyeOffsetPoseLeft.m[0][0] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[1][1] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[2][2] = 1.0;
-		myShaderVals2.eyeOffsetPoseLeft.m[3][3] = 1.0;
-
-		myShaderVals2.eyeOffsetPoseRight.m[0][0] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[1][1] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[2][2] = 1.0;
-		myShaderVals2.eyeOffsetPoseRight.m[3][3] = 1.0;
+		myShaderVals2.deltaPoseLeft.m[0][0] = 1.0; 
+		myShaderVals2.deltaPoseLeft.m[1][1] = 1.0;
+		myShaderVals2.deltaPoseLeft.m[2][2] = 1.0;
+		myShaderVals2.deltaPoseLeft.m[3][3] = 1.0;
+		myShaderVals2.deltaPoseLeftInverse.m[0][0] = 1.0;
+		myShaderVals2.deltaPoseLeftInverse.m[1][1] = 1.0;
+		myShaderVals2.deltaPoseLeftInverse.m[2][2] = 1.0;
+		myShaderVals2.deltaPoseLeftInverse.m[3][3] = 1.0;
+		myShaderVals2.deltaPoseRight.m[0][0] = 1.0;
+		myShaderVals2.deltaPoseRight.m[1][1] = 1.0;
+		myShaderVals2.deltaPoseRight.m[2][2] = 1.0;
+		myShaderVals2.deltaPoseRight.m[3][3] = 1.0;
+		myShaderVals2.deltaPoseRightInverse.m[0][0] = 1.0;
+		myShaderVals2.deltaPoseRightInverse.m[1][1] = 1.0;
+		myShaderVals2.deltaPoseRightInverse.m[2][2] = 1.0;
+		myShaderVals2.deltaPoseRightInverse.m[3][3] = 1.0;
 
 		if (g_pConstantBuffer11) {
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -335,14 +195,10 @@ public:
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
 			devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 			ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
-			dataPtr->delta = myShaderVals2.delta;
-
-			dataPtr->eyeOffsetPoseLeft = myShaderVals2.eyeOffsetPoseLeft;
-			dataPtr->eyeOffsetPoseLeftInv = myShaderVals2.eyeOffsetPoseLeft;
-
-			dataPtr->eyeOffsetPoseRight = myShaderVals2.eyeOffsetPoseRight;
-			dataPtr->eyeOffsetPoseRightInv = myShaderVals2.eyeOffsetPoseRightInv;
-
+			dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
+			dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
+			dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
+			dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 			devcon->Unmap(g_pConstantBuffer11_2, 0);
 			devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);

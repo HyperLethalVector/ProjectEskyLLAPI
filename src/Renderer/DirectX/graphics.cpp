@@ -100,12 +100,11 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 				D3D11_MAPPED_SUBRESOURCE mappedResource;
 				devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
-				dataPtr->delta = myShaderVals2.delta;
-				dataPtr->deltaInverse = myShaderVals2.deltaInverse;
-				dataPtr->eyeOffsetPoseLeft = myShaderVals2.eyeOffsetPoseLeft;
-				dataPtr->eyeOffsetPoseLeftInv = myShaderVals2.eyeOffsetPoseLeft;
-				dataPtr->eyeOffsetPoseRight = myShaderVals2.eyeOffsetPoseRight;
-				dataPtr->eyeOffsetPoseRightInv = myShaderVals2.eyeOffsetPoseRightInv;
+				dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
+				dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
+
+				dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
+				dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 				devcon->Unmap(g_pConstantBuffer11_2, 0);
 				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);

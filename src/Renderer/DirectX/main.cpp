@@ -185,18 +185,12 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPlugin
 		windowGraphics[selectedWnd].SetTexturePtrLeft(texturePtr);
 	}     
 }
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowID, float* delta, float* deltaInverse) {
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowID, float* deltaLeft, float* deltaInverseLeft, float* deltaRight, float* deltaInverseRight) {
 	if (windowIds.count(windowID)) { 
-		selectedWnd = windowIds[windowID];
-		windowGraphics[selectedWnd].SetAffine(delta,deltaInverse);
-	} 
+		selectedWnd = windowIds[windowID]; 
+		windowGraphics[selectedWnd].SetAffine(deltaLeft, deltaInverseLeft, deltaRight, deltaInverseRight);
+	}       
 } 
-extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetEyeOffset(int windowID, float* eyeOffsetLeft, float* eyeOffsetRight, float* eyeOffsetLeftInv, float* eyeOffsetRightInv) {
-	if (windowIds.count(windowID)) {
-		selectedWnd = windowIds[windowID];
-		windowGraphics[selectedWnd].SetEyeOffset(eyeOffsetLeft, eyeOffsetRight,eyeOffsetLeftInv,eyeOffsetRightInv);
-	}
-}
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowID,
 float leftUvToRectX[],// = { 0.0 };
 float leftUvToRectY[],// = { 0.0 }; 

@@ -48,9 +48,8 @@ public:
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
     typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
-    typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn, float* inverseToReturn, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
-
-    typedef void(*FuncDeltaPoseUpdateCallback)(float *poseData,float *poseDataInv, int length);
+    typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn, float* inverseToReturn,bool isLeft, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
+    typedef void(*FuncDeltaPoseUpdateCallback)(float* poseDataLeft, float* poseDataLeftInv, float* poseDataRight, float* poseDataRightInv, int length);
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
@@ -72,26 +71,23 @@ public:
 
 
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
-    float* deltaPoseArray = new float[16]{ 1,0,0,0,
+    float* deltaPoseLeftArray = new float[16]{ 1,0,0,0,
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
-    float* deltaPoseInvArray = new float[16]{ 1,0,0,0,
+    float* deltaPoseLeftInvArray = new float[16]{ 1,0,0,0,
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
-    float* hardCodedProjection = new float[16]{
-                                                1.427334, 0,    0.5, 0.0,
-                                                0  , 2.537483f, 0.5, 0.0,
-                                                0  , 0   , -1.0, -0.2,
-                                                0  , 0   , -1.0, 1.0
-                                            };
-    float* hardCodedExtrinsic = new float[16]{
-                                            1.0,0.0,0.0,0.0,
-                                            0.0,1.0,0.0,0.0,
-                                            0.0,0.0,1.0,0.0,
-                                            0.0,0.0,0.0,1.0
-    };
+    float* deltaPoseRightArray = new float[16]{ 1,0,0,0,
+                                     0,1,0,0,
+                                     0,0,1,0,
+                                     0,0,0,1 };
+    float* deltaPoseRightInvArray = new float[16]{ 1,0,0,0,
+                                     0,1,0,0,
+                                     0,0,1,0,
+                                     0,0,0,1 };
+
 
     //get intrinsics as float array
     // the fisheye mat
@@ -595,16 +591,7 @@ public:
                 dstTri[0] = cv::Point2f(0.f, 0.f);
                 dstTri[1] = cv::Point2f(1.0f, 0.f);
                 dstTri[2] = cv::Point2f(0.0f, 1.0f);
-
-                cv::Mat projMatVirtual = cv::Mat(4, 4, CV_32F, hardCodedProjection);
-                cv::Mat intrinsicsVirtual = cv::Mat(4, 4, CV_32F, hardCodedExtrinsic);
                 
-                cv::Mat initialPose = cv::Mat(4, 4, CV_32F); SetIdentity(initialPose);
-                cv::Mat finalPose = cv::Mat(4, 4, CV_32F); SetIdentity(finalPose);
-                cv::Mat deltaPose = cv::Mat(4, 4, CV_32F); SetIdentity(deltaPose);
-
-
-
                 cv::Mat aff = cv::Mat(3, 4, CV_32F);
                 float AngleToDeg = (3.14f / 180.0f);
                 float* f = new float[4] {0.0f, 0.0f, 0.0f, 0.0f};
@@ -699,16 +686,24 @@ public:
                                 poseInitial[i] = pose[i];
                             }
                         }
-                        if (callbackMatrixConvert != nullptr) {
-                            callbackMatrixConvert(deltaPoseArray,deltaPoseInvArray,
-                                poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
-                                pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
-                            );
+                        try {
+                            if (callbackMatrixConvert != nullptr) {
+                                callbackMatrixConvert(deltaPoseLeftArray, deltaPoseLeftInvArray, true,
+                                    poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
+                                    pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
+                                );
+                                callbackMatrixConvert(deltaPoseRightArray, deltaPoseRightInvArray, false,
+                                    poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
+                                    pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
+                                );
+                            }
+                            if (callbackDeltaPoseUpdate != nullptr) {
+                                callbackDeltaPoseUpdate(deltaPoseLeftArray, deltaPoseLeftInvArray, deltaPoseRightArray, deltaPoseRightInvArray, 15);
+                            }
                         }
-                        if (callbackDeltaPoseUpdate != nullptr) {
-                            callbackDeltaPoseUpdate(deltaPoseArray,deltaPoseInvArray, 15);
-                        } 
-                        
+                        catch (std::exception e) {
+                            Debug::Log(e.what(), Color::Red);
+                        }
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
