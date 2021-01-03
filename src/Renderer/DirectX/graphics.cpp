@@ -94,23 +94,22 @@ void Graphics::RenderFrame() {
 void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	graphicsRender = true;
 	while (graphicsRender) {
-		if (updateAffineOnGraphicsThread) {
-			updateAffineOnGraphicsThread = false;
+		if (updateDeltaPoseOnGraphicsThread) {
+			updateDeltaPoseOnGraphicsThread = false;
 			if (g_pConstantBuffer11_2) {
 				D3D11_MAPPED_SUBRESOURCE mappedResource;
 				devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
 				dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
 				dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
-
 				dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
+				dataPtr->toggleConfigs = myShaderVals2.toggleConfigs;
 				dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 				devcon->Unmap(g_pConstantBuffer11_2, 0);
 				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 			}
 		}
-
 		FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		devcon->ClearRenderTargetView(backbuffer, color);
 		UINT stride = sizeof(VERTEX);
@@ -123,7 +122,7 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 			graphicsRender = false;
 		}
 		else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(8));
+			std::this_thread::sleep_for(std::chrono::milliseconds(4));
 		}
 
 	}

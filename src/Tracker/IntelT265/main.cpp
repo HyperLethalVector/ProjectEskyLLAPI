@@ -161,7 +161,7 @@ extern "C" {
         if (eventType == kUnityGfxDeviceEventInitialize) 
         {
 #ifdef __linux
-#else
+#else  
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             m_Device = d3d->GetDevice(); 
             Debug::Log("Obtained tracker d3d device");   
@@ -198,7 +198,7 @@ extern "C" {
             to->ResetInitialPose(); 
         }
     }
-    DLL_EXPORT void ResetTrackerInitialPose() {
+    DLL_EXPORT void ResetTrackerInitialPose() { 
         if (to != nullptr) {
             to->ResetInitialPose(); 
         }  

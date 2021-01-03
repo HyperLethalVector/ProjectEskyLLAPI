@@ -101,10 +101,16 @@ HWND CreateNewWindow(LPCWSTR titlestr, int width, int height, bool noStyle) {
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRenderTextureWidthHeight(int id, int width, int height) {
 	if (windowIds.count(id)) {
-		selectedWnd = windowIds[id];
+		selectedWnd = windowIds[id]; 
 		windowGraphics[selectedWnd].unityTextureWidth = width;
 		windowGraphics[selectedWnd].unityTextureHeight = height;
 
+	}
+}
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetEnableFlagWarping(int id, bool enabled) {
+	if (windowIds.count(id)) {
+		selectedWnd = windowIds[id];
+		windowGraphics[selectedWnd].SetEnableFlagWarping(enabled);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StartWindow(const wchar_t* title, int width, int height, bool noBorder){
@@ -212,7 +218,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPlugin
 	if (windowIds.count(windowId)) {
 		selectedWnd = windowIds[windowId];
 		windowGraphics[selectedWnd].SetTexturePtrRight(texturePtr);
-	}  
+	}   
 }   
 static void SetAttributes(HWND hwnd, int colorKey, byte alpha, int flags) {
 	if (flags == 0) {

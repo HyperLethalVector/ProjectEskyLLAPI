@@ -44,6 +44,7 @@ typedef struct ShaderVals2 {
 	DirectX::XMFLOAT4X4 deltaPoseLeftInverse;
 	DirectX::XMFLOAT4X4 deltaPoseRight;
 	DirectX::XMFLOAT4X4 deltaPoseRightInverse;
+	DirectX::XMFLOAT4 toggleConfigs;
 }ShaderVals2;
 class Graphics {
 private:
@@ -95,7 +96,7 @@ public:
 	static int sampleCount; 
 	static int descQuality;
 	bool doRender = false;
-	bool updateAffineOnGraphicsThread = false;
+	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
@@ -106,6 +107,9 @@ public:
 	void SetSize(int w, int h) { width = w; height = h; }
 	void SetCloseFromUnity(bool closeFromUnity) { wmCloseFromUnity = closeFromUnity;}
 	bool GetCloseFromUnity() { return wmCloseFromUnity; }
+	void SetEnableFlagWarping(bool on) {
+		myShaderVals2.toggleConfigs.x = on ? 0.0 : 1.0;
+	}
 	void StartRenderThread() {
 		if (!threadStarted) {
 			threadStarted = true;
@@ -126,7 +130,7 @@ public:
 				myShaderVals2.deltaPoseRightInverse.m[x][y] = inputdeltaInverseRight[y * 4 + x];
 			}
 		}
-		updateAffineOnGraphicsThread = true;
+		updateDeltaPoseOnGraphicsThread = true;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };
@@ -155,23 +159,12 @@ public:
 				myShaderVals.InvCameraMatrixRight.m[x][y] = InvCameraMatrixRight[y * 4 + x];
 			}
 		}
-		myShaderVals2.deltaPoseLeft.m[0][0] = 1.0; 
-		myShaderVals2.deltaPoseLeft.m[1][1] = 1.0;
-		myShaderVals2.deltaPoseLeft.m[2][2] = 1.0;
-		myShaderVals2.deltaPoseLeft.m[3][3] = 1.0;
-		myShaderVals2.deltaPoseLeftInverse.m[0][0] = 1.0;
-		myShaderVals2.deltaPoseLeftInverse.m[1][1] = 1.0;
-		myShaderVals2.deltaPoseLeftInverse.m[2][2] = 1.0;
-		myShaderVals2.deltaPoseLeftInverse.m[3][3] = 1.0;
-		myShaderVals2.deltaPoseRight.m[0][0] = 1.0;
-		myShaderVals2.deltaPoseRight.m[1][1] = 1.0;
-		myShaderVals2.deltaPoseRight.m[2][2] = 1.0;
-		myShaderVals2.deltaPoseRight.m[3][3] = 1.0;
-		myShaderVals2.deltaPoseRightInverse.m[0][0] = 1.0;
-		myShaderVals2.deltaPoseRightInverse.m[1][1] = 1.0;
-		myShaderVals2.deltaPoseRightInverse.m[2][2] = 1.0;
-		myShaderVals2.deltaPoseRightInverse.m[3][3] = 1.0;
-
+		for (int x = 0; x < 4; x++) {
+			myShaderVals2.deltaPoseLeft.m[x][x] = 1.0;
+			myShaderVals2.deltaPoseLeftInverse.m[x][x] = 1.0;
+			myShaderVals2.deltaPoseRight.m[x][x] = 1.0;
+			myShaderVals2.deltaPoseRightInverse.m[x][x] = 1.0;
+		}
 		if (g_pConstantBuffer11) {
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
 			devcon->Map(g_pConstantBuffer11, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -201,7 +194,7 @@ public:
 			dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 			devcon->Unmap(g_pConstantBuffer11_2, 0);
 			devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
-			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2); 
 		}
 	}
 private:

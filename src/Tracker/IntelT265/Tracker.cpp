@@ -576,12 +576,13 @@ public:
             if (Serial->WriteSerialPort("r\r\n")) {
                 Debug::Log("Restarted the t265/1",Color::Green);  
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-            }
+            } 
             Serial->CloseSerialPort();
 #endif
         }
         while (!DoExit3) {
             try {
+                bool receivedPoseFirst = false;
                 cv::Point2f srcTri[3];
                 srcTri[0] = cv::Point2f(0.f, 0.f);
                 srcTri[1] = cv::Point2f(1.0f, 0.f);
@@ -704,53 +705,56 @@ public:
                         catch (std::exception e) {
                             Debug::Log(e.what(), Color::Red);
                         }
+                        receivedPoseFirst = true;
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
-                        rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
-                        const int w = video_frame.get_width();
-                        const int h = video_frame.get_height();
-                        if (!hasReceivedCameraStream) {
-                            rs2::stream_profile fisheye_stream = myProf.get_stream(RS2_STREAM_FISHEYE, 1);
-                            intrinsics = fisheye_stream.as<rs2::video_stream_profile>().get_intrinsics(); 
-                            rs2_extrinsics pose_to_fisheye_extrinsics = myProf.get_stream(RS2_STREAM_POSE).get_extrinsics_to(fisheye_stream);
-                            intrinsicsL = (cv::Mat_<double>(3, 3) << 
-                                intrinsics.fx, 0, intrinsics.ppx,
-                                0, intrinsics.fy, intrinsics.ppy, 0, 0, 1);
-                            distCoeffsL = cv::Mat(1, 5, CV_32F, intrinsics.coeffs);
-                            cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << distCoeffsL.at<double>(0, 0), distCoeffsL.at<double>(1, 0), distCoeffsL.at<double>(2, 0), distCoeffsL.at<double>(3, 0));
-                            cv::Mat identity = cv::Mat::eye(3, 3, CV_64F);
-                            cv::Mat PP1(3, 4, cv::DataType<float>::type);
-                            intrinsicsL.copyTo(PP1.rowRange(0, 3).colRange(0, 3));
+                        if (receivedPoseFirst) {
+                            rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);//get the left frame
+                            const int w = video_frame.get_width();
+                            const int h = video_frame.get_height();
+                            if (!hasReceivedCameraStream) {
+                                rs2::stream_profile fisheye_stream = myProf.get_stream(RS2_STREAM_FISHEYE, 1);
+                                intrinsics = fisheye_stream.as<rs2::video_stream_profile>().get_intrinsics();
+                                rs2_extrinsics pose_to_fisheye_extrinsics = myProf.get_stream(RS2_STREAM_POSE).get_extrinsics_to(fisheye_stream);
+                                intrinsicsL = (cv::Mat_<double>(3, 3) <<
+                                    intrinsics.fx, 0, intrinsics.ppx,
+                                    0, intrinsics.fy, intrinsics.ppy, 0, 0, 1);
+                                distCoeffsL = cv::Mat(1, 5, CV_32F, intrinsics.coeffs);
+                                cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << distCoeffsL.at<double>(0, 0), distCoeffsL.at<double>(1, 0), distCoeffsL.at<double>(2, 0), distCoeffsL.at<double>(3, 0));
+                                cv::Mat identity = cv::Mat::eye(3, 3, CV_64F);
+                                cv::Mat PP1(3, 4, cv::DataType<float>::type);
+                                intrinsicsL.copyTo(PP1.rowRange(0, 3).colRange(0, 3));
+                                try {
+                                    cv::fisheye::initUndistortRectifyMap(intrinsicsL, distortionCoefficients, identity, PP1, cv::Size(848, 800), CV_32FC1, lm1, lm2);
+                                }
+                                catch (cv::Exception& e) {
+                                    Debug::Log(e.what(), Color::Red);
+                                }
+
+                            }
+                            fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
+                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA);
+                            if (!hasReceivedCameraStream) {
+                                fisheye_mat_color_undistort = fisheye_mat_color.clone();
+                            }
                             try {
-                                cv::fisheye::initUndistortRectifyMap(intrinsicsL, distortionCoefficients, identity, PP1, cv::Size(848, 800), CV_32FC1, lm1, lm2);
+                                cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
                             }
                             catch (cv::Exception& e) {
                                 Debug::Log(e.what(), Color::Red);
                             }
-
-                        }
-                        fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);         
-                        cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA);
-                        if (!hasReceivedCameraStream) {
-                            fisheye_mat_color_undistort = fisheye_mat_color.clone();
-                        }
-                        try {
-                            cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
-                        }
-                        catch (cv::Exception& e) {
-                            Debug::Log(e.what(), Color::Red);
-                        }
-                        if (!hasReceivedCameraStream) {
-                            textureChannels = 4;
-                            if (textureInitializedCallback != nullptr) {
-                                double fovX, fovY = 0;
-                                double focalLength = 0;
-                                double aspectRatio = 0;
-                                cv::Point2d myPrincipalPoint;
-                                cv::calibrationMatrixValues(intrinsicsL, cv::Size(848, 800), 0, 0, fovX, fovY, focalLength,myPrincipalPoint,aspectRatio);
-                                textureInitializedCallback(w, h, 4, intrinsics.fx, intrinsics.fy, intrinsics.ppx, intrinsics.ppy,fovX,fovY,focalLength);
+                            if (!hasReceivedCameraStream) {
+                                textureChannels = 4;
+                                if (textureInitializedCallback != nullptr) {
+                                    double fovX, fovY = 0;
+                                    double focalLength = 0;
+                                    double aspectRatio = 0;
+                                    cv::Point2d myPrincipalPoint;
+                                    cv::calibrationMatrixValues(intrinsicsL, cv::Size(848, 800), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
+                                    textureInitializedCallback(w, h, 4, intrinsics.fx, intrinsics.fy, intrinsics.ppx, intrinsics.ppy, fovX, fovY, focalLength);
+                                }
+                                hasReceivedCameraStream = true;
                             }
-                            hasReceivedCameraStream = true;
                         }
                     }
                     });
