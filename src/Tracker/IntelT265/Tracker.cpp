@@ -68,7 +68,7 @@ public:
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* poseInitial = new float[7]{ 0,0,0,0,0,0,0 };
-
+    float* poseFinal = new float[7]{ 0,0,0,0,0,0,0 };
 
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* deltaPoseLeftArray = new float[16]{ 1,0,0,0,
@@ -651,6 +651,7 @@ public:
                         double pose_time_ms = pose_frame.get_timestamp();
                         float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
                         rs2_pose predicted_pose = predict_pose(pose_data, dt_s);
+                        rs2_pose final_reading_fused = predict_pose(pose_data, dt_s);
                         rs2_quaternion qt = predicted_pose.rotation;
                         qq.x = predicted_pose.rotation.x;
                         qq.y = predicted_pose.rotation.y;
@@ -683,19 +684,34 @@ public:
                         pose[6] = f[3];
                         if (resetInitialPose) { //here if we receive the flag (a frame is rendered), we calculate the new pose as the 'initial'
                             resetInitialPose = false;
-                            for (int i = 0; i < 7; i++) {
-                                poseInitial[i] = pose[i];
-                            }
+                            poseInitial[0] = final_reading_fused.translation.x;
+                            poseInitial[1] = final_reading_fused.translation.y;
+                            poseInitial[2] = final_reading_fused.translation.z;
+                            poseInitial[3] = final_reading_fused.rotation.x;
+                            poseInitial[4] = final_reading_fused.rotation.y;
+                            poseInitial[5] = final_reading_fused.rotation.z;
+                            poseInitial[6] = final_reading_fused.rotation.w;
+
+//                            for (int i = 0; i < 7; i++) {
+  //                              poseInitial[i] = pose[i];
+    //                        }
                         }
+                        poseFinal[0] = final_reading_fused.translation.x;
+                        poseFinal[1] = final_reading_fused.translation.y;
+                        poseFinal[2] = final_reading_fused.translation.z;
+                        poseFinal[3] = final_reading_fused.rotation.x;
+                        poseFinal[4] = final_reading_fused.rotation.y;
+                        poseFinal[5] = final_reading_fused.rotation.z;
+                        poseFinal[6] = final_reading_fused.rotation.w;
                         try {
                             if (callbackMatrixConvert != nullptr) {
                                 callbackMatrixConvert(deltaPoseLeftArray, deltaPoseLeftInvArray, true,
                                     poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
-                                    pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
+                                    poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
                                 );
                                 callbackMatrixConvert(deltaPoseRightArray, deltaPoseRightInvArray, false,
                                     poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
-                                    pose[0], pose[1], pose[2], pose[3], pose[4], pose[5], pose[6]
+                                    poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
                                 );
                             }
                             if (callbackDeltaPoseUpdate != nullptr) {

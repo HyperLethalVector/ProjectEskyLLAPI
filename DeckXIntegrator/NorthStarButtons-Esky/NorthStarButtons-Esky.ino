@@ -1,11 +1,11 @@
 #include <Wire.h> // Include the I2C library (required)
-#include <SX1508.h> // Include SX1508 library
+//#include <SX1508.h> // Include SX1508 library
 #include <SoftwareSerial.h> // Include the Serial Library
 #include "Keyboard.h"
 
 // SX1508 I2C address (set by ADDR1 and ADDR0 (00 by default):
-const byte SX1508_ADDRESS = 0x20;  // SX1508 I2C address
-SX1508 io; // Create an SX1508 object to be used throughout
+//const byte SX1508_ADDRESS = 0x20;  // SX1508 I2C address
+//SX1508 io; // Create an SX1508 object to be used throughout
 
 // SX1508 Pins:
 const byte SX1508_BUTTON_PIN = 0; // IO 0 connected to button
@@ -53,11 +53,11 @@ void setup()
   Serial.begin(9600);//.begin(9600);
   // Call io.begin(<address>) to initialize the SX1508. If
   // it successfully communicates, it'll return 1.
-  if (!io.begin(SX1508_ADDRESS))
-  {
-    Serial.println("Failed to communicate.");
-    while (1) ;
-  }
+//  if (!io.begin(SX1508_ADDRESS))
+ // {
+  //  Serial.println("Failed to communicate.");
+  //  while (1) ;
+  //}
 
   // io.configForNorthStarButtons();
 
@@ -66,10 +66,10 @@ void setup()
   // io.writeByte(REG_INPUT_DISABLE, 0b11000000);
   // io.writeByte(REG_PULL_UP, 0b00111111);
   //  io.pinMode(SX1508_BUTTON_PIN, INPUT_PULLUP);
-  for (byte i = 0; i < 6; i++) {
-    io.pinMode(i, INPUT_PULLUP);
-    delay(1);
-  }
+//  for (byte i = 0; i < 6; i++) {
+//    io.pinMode(i, INPUT_PULLUP);
+//    delay(1);
+//  }
 
   // Use io.enableInterrupt(<pin>, <signal>) to enable an
   // interrupt on a pin. The <signal> variable can be either
@@ -79,22 +79,22 @@ void setup()
   //    io.enableInterrupt(i, FALLING);
   //    delay(1);
   //  }
-  io.writeByte(0x09, 0b11000000);
-  io.writeByte(0x0A, 0b00001111);
-  io.writeByte(0x0B, 0b11111111);
+ // io.writeByte(0x09, 0b11000000);
+//  io.writeByte(0x0A, 0b00001111);
+//  io.writeByte(0x0B, 0b11111111);
 
   // The SX1508 has built-in debounce features, so a single
   // button-press doesn't accidentally create multiple ints.
   // Use io.debounceTime(<time_ms>) to set the GLOBAL SX1508
   // debounce time.
   // <time_ms> can be either 0, 1, 2, 4, 8, 16, 32, or 64 ms.
-  io.debounceTime(32); // Set debounce time to 32 ms.
+//  io.debounceTime(32); // Set debounce time to 32 ms.
 
   // After configuring the debounce time, use
   //debouncePin(<pin>) to enable debounce on an input pin.
-  for (byte i = 0; i < 6; i++) {
-    io.debouncePin(i);
-  }
+ // for (byte i = 0; i < 6; i++) {
+  //  io.debouncePin(i);
+ // }
 
   // Attach an Arduino interrupt to the interrupt pin. Call
   // the button function, whenever the pin goes from HIGH to
@@ -129,67 +129,6 @@ void loop()
     }
   }
   //Serial.println(".");
-  if (buttonPressed) // If the button() ISR was executed
-  {
-    buttonPressed = false; // Clear the buttonPressed flag
-    Serial.println("Int triggered");
-    // read io.interruptSource() find out which pin generated
-    // an interrupt and clear the SX1508's interrupt output.
-    byte intStatus = io.interruptSource(true);
-    byte buttonStatus = 0xFF ^ io.readData();
-    // For debugging handiness, print the intStatus variable.
-    // Each bit in intStatus represents a single SX1508 IO.
-//    Serial.println("intStatus = " + String(intStatus, BIN) + " buttonStatus = " + String(buttonStatus, BIN));
-
-    // If the bit corresponding to our button IO generated
-    // the input:
-
-    byte pressed = intStatus | buttonStatus;
-    byte buttonNum = 0;
-    byte numPressed = 0;
-    for (byte i = 0; i < 6; i++) {
-      if (intStatus & (1 << i)) {
-        buttonNum = i;
-        Serial.print("Button " + String(buttonNum) + " was ");
-        if (buttonStatus & (1 << i)) {
-          //Record time that the button was pressed
-          buttonTimer[i] = millis();
-
-          //Mark the timer as "active"
-          timerMask |= (1 << i);
-
-          //Send associated keycode
-          //(For D-Pad. Key sending functions for A and B moved to timer delay to allow for dual press function)
-          if (i < 4) {
-            Keyboard.press(keycode[i]);
-          }
-        }
-        else {
-          //Button triggered interrupt but isn't held... must've been released!
-          Serial.println("released. ");
-          Keyboard.release(keycode[i]);
-          //"Deactivate" timer
-          if (i >3 && timerMask & (1 << i)) {
-            Keyboard.press(keycode[i]);
-            Keyboard.release(keycode[i]);
-          }
-          timerMask &= ~(1 << i);
-//          Serial.println("It was held for " + String(millis() - buttonTimer[i]) + "ms.");
-        }
-      }
-      //How many buttons are held right now?
-      if (buttonStatus & (1 << i)) {
-        numPressed++;
-      }
-    }
-    if (numPressed > 1) {
-//      Serial.println("There are " + String(numPressed) + " buttons being held.");
-    }
-    else {
-    //  Serial.println();
-    }
-  //  Serial.println("TimerMask = " + String(timerMask, BIN));
-  }
   timerActions();
 }
 
@@ -237,22 +176,7 @@ void timerActions() {
 }
 
 void switchAltKeys(){
-  //            if (altKeys) {
-//              altKeys = false;
-//              for (int i = 0; i < 6; i++) {
-//                keycode[i] = keycode1[i];
-//              }
-//              digitalWrite(PORT_1, HIGH);
-//              digitalWrite(PORT_2, HIGH);
-//            }
-//            else {
-//              altKeys = true;
-//              for (int i = 0; i < 6; i++) {
-//                keycode[i] = keycode2[i];
-//              }
-//              digitalWrite(PORT_1, LOW);
-//              digitalWrite(PORT_2, LOW);
-//            }
+
 }
 
 // button() is an Arduino interrupt routine, called whenever

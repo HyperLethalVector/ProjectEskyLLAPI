@@ -124,7 +124,7 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopWindow(){
 		windowGraphics[ghWnd].SetCloseFromUnity(true);
 		PostMessage(ghWnd, WM_CLOSE, 0, 0); 
 		ghWnd = NULL;
-	}
+	} 
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRect(int left, int top, int width, int height) {
