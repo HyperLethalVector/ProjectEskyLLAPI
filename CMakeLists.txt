@@ -87,6 +87,7 @@ add_library(libProjectEskyLLAPIIntel SHARED
 ./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
+#ZED
 add_library(libProjectEskyLLAPIZED SHARED 
 ./src/Tracker/ZED/main.cpp 
 ./src/Tracker/ZED/Tracker_Zed.cpp 
@@ -98,15 +99,49 @@ target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${ZED_LIBS}  ${D3D1
 #DirectX Renderer
 add_library(ProjectEskyLLAPIRenderer SHARED 
 ./src/Renderer/DirectX/main.cpp 
-./src/Renderer/DirectX/Stabilizer.hpp
 ./src/Renderer/DirectX/graphics.cpp 
 ./src/Renderer/DirectX/graphics.h
 )
+
 set_target_properties(ProjectEskyLLAPIRenderer PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
-target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+target_link_libraries(ProjectEskyLLAPIRenderer ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
 
+#RGBSensorModule
+add_library(libProjectEskyRGBSensorModule SHARED
+./src/RGBSensorModule/main.cpp
+./src/RGBSensorModule/RGBSensorModule.cpp
+./src/RGBSensorModule/RGBSensorModule.h
+./src/UnityHooks.def)
+set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
+set_target_properties(libProjectEskyRGBSensorModule PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(libProjectEskyRGBSensorModule ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
 
-else()
+add_executable(ProjectEskyOpenCVCalibration
+./src/Calibration/main.cpp
+)
+target_link_libraries(ProjectEskyOpenCVCalibration ${DEPENDENCIES}  ${OpenCV_LIBS})
+
+#ARUCOTrackerModule
+add_library(libProjectEskyARUCOTrackerModule SHARED
+./src/ARUCOTrackerModule/main.cpp
+./src/ARUCOTrackerModule/ARUCOTrackerModule.cpp
+./src/ARUCOTrackerModule/ARUCOTrackerModule.h
+./src/UnityHooks.def)
+set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
+set_target_properties(libProjectEskyARUCOTrackerModule PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(libProjectEskyARUCOTrackerModule ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+
+#ARUCOTrackerModule print program
+add_executable(ProjectEskyARUCOTrackerModulePrint
+./src/ARUCOTrackerModule/main-prog.cpp
+./src/ARUCOTrackerModule/ARUCOTrackerModule.cpp
+./src/ARUCOTrackerModule/ARUCOTrackerModule.h
+./src/UnityHooks.def)
+set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
+set_target_properties(ProjectEskyARUCOTrackerModulePrint PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(ProjectEskyARUCOTrackerModulePrint ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+
+else() #LinuxLibraries
 add_library(libProjectEskyLLAPIIntel SHARED 
 ./src/Tracker/IntelT265/main.cpp 
 ./src/Tracker/IntelT265/Tracker.cpp 
@@ -116,7 +151,6 @@ add_library(libProjectEskyLLAPIIntel SHARED
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
 endif()
-#ZED
 
 
 if(WIN32)

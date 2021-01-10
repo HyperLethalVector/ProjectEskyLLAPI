@@ -14,3 +14,10 @@ EXPORTS
    StartSpatialMapping
    OnRenderEvent
    OnGraphicsDeviceEvent
+   InitializeCameraObject
+   StartCamera
+   HookToSensor
+   SetTextureCallback
+   StopCamera
+   SubscribeCallback
+   SubscribeToInitializedCallback

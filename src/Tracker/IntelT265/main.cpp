@@ -2,18 +2,18 @@
 #include <stdio.h>
 #include <sstream>
 #include <fstream>
-#include <thread> 
+#include <thread>  
 #include <iostream>  
 #define STB_IMAGE_IMPLEMENTATION 
 #include "stb_image.h"  
-#include <array>     
-#include <cmath>  
-#include <iostream>
+#include <array>       
+#include <cmath>    
+#include <iostream> 
 #include <vector>   
-#include <iomanip>  
+#include <iomanip>    
 #include <chrono>    
 #include <thread> 
-#include <mutex>
+#include <mutex> 
 #include <math.h>   
 #include <float.h>  
 #include "Tracker.cpp"   
@@ -22,7 +22,7 @@
 #include <d3d11.h>  
 #define STB_IMAGE_IMPLEMENTATION
 #endif
- 
+  
 
 
 
@@ -105,7 +105,7 @@ extern "C" {
         }
         else {
             Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
-            nullptr;
+            nullptr;  
         }
     }
     DLL_EXPORT void SetObjectPoseInLocalizedMap(const char* objectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw) {
@@ -115,7 +115,7 @@ extern "C" {
         }
         else {
             Debug::Log("WARNING: Tracker not initialized", Color::Yellow);
-        } 
+        }  
     }
     DLL_EXPORT void HookDeviceToIntel() {
         if (to != nullptr) {
@@ -143,15 +143,15 @@ extern "C" {
     extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
     { 
         s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent); 
-    }
-
-    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
+    } 
+     
+    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength, float d1, float d2, float d3, float d4, float d5);
     DLL_EXPORT void SetTextureInitializedCallback(FuncTextureInitializedCallback myCallback) {
         if (to != nullptr) { 
             Debug::Log("Set my texture callback");  
             to->textureInitializedCallback = myCallback;
         }  
-        else { 
+        else {  
             Debug::Log("Tracker not initialized!!");
         }   
     } 
@@ -161,7 +161,7 @@ extern "C" {
         if (eventType == kUnityGfxDeviceEventInitialize) 
         {
 #ifdef __linux
-#else  
+#else   
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             m_Device = d3d->GetDevice(); 
             Debug::Log("Obtained tracker d3d device");   
@@ -169,7 +169,7 @@ extern "C" {
         }     
         else if (eventType == kUnityGfxDeviceEventShutdown) {
         }             
-    }       
+    }           
     typedef void(*FuncCallBack)(const char* message, int color, int size);  
     static FuncCallBack callbackInstance = nullptr;   
     typedef void(*FuncCallBack2)(int LocalizationDelegate); 
@@ -219,7 +219,18 @@ extern "C" {
     DLL_EXPORT void SetRenderTexturePointer(void* textureHandle) {
         if (to != nullptr) {
             Debug::Log("Set Render Texture Pointer");
-            to->SetTexturePointer(textureHandle);
+            to->SetTexturePointer(textureHandle); 
+        }
+    }
+    DLL_EXPORT void SubscribeCallbackImageWithID(int instanceID, int camID, FuncReceiveCameraImageCallbackWithID callback) {
+        if (to != nullptr) {
+           to->SubscribeReceiver(instanceID, callback);
+        }
+    }
+     
+    DLL_EXPORT void SubscribeCallbackImage(int camID, FuncReceiveCameraImageCallback callback) {
+        if (to != nullptr) {
+            to->SubscribeReceiver(callback);
         }
     }
 }

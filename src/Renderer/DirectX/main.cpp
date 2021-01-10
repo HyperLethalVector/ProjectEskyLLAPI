@@ -20,7 +20,7 @@ void DebugMessage(const char * message);
  
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-{
+{ 
     // sort through and find what code to run for the message given 
     switch(message)
     {

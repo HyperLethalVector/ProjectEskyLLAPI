@@ -96,6 +96,7 @@ public:
 	static int sampleCount; 
 	static int descQuality;
 	bool doRender = false;
+	bool RenderLock = false;
 	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
 	void InitD3D(HWND hWnd);
@@ -122,6 +123,7 @@ public:
 	} 
 
 	void SetAffine(float* inputDeltaLeft, float* inputdeltaInverseLeft, float* inputDeltaRight, float* inputdeltaInverseRight) {
+		RenderLock = true;
 		for (int x = 0; x < 4; x++) {
 			for (int y = 0; y < 4; y++) {
 				myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
@@ -131,6 +133,7 @@ public:
 			}
 		}
 		updateDeltaPoseOnGraphicsThread = true;
+		RenderLock = false;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };

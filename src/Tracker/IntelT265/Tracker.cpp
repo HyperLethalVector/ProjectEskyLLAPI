@@ -34,12 +34,13 @@
     #include "Serial.h"
 #endif
 #define PI 3.141592653
-struct Quaternion {
-    double w, x, y, z;
-};
-
-struct EulerAngles {
-    double z, x, y;
+typedef void(*FuncReceiveCameraImageCallback)(unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
+typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
+class TrackerImageCallback {
+public:
+    FuncReceiveCameraImageCallback callback;
+    FuncReceiveCameraImageCallbackWithID callbackWithID;
+    int instanceID = 0;
 };
 class TrackerObject {
 public:
@@ -47,9 +48,10 @@ public:
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
     typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
-    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength);
+    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength,  float d1, float d2, float d3, float d4, float d5);
     typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn, float* inverseToReturn,bool isLeft, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
     typedef void(*FuncDeltaPoseUpdateCallback)(float* poseDataLeft, float* poseDataLeftInv, float* poseDataRight, float* poseDataRightInv, int length);
+    std::vector<TrackerImageCallback*> subscribedImageReceivers;
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
@@ -87,13 +89,14 @@ public:
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
-
+    float fx, fy, cx, cy, d1, d2, d3, d4, d5 = 0;
 
     //get intrinsics as float array
     // the fisheye mat
     cv::Mat fisheye_mat;
     cv::Mat fisheye_mat_color;
     cv::Mat fisheye_mat_color_undistort;
+    cv::Mat fisheye_mat_color_cpu;
     cv::Mat lm1, lm2;
     cv::Mat affineTransform;
     rs2_pose object_in_world_pose_frame;
@@ -368,7 +371,7 @@ public:
         KF.transitionMatrix.at<double>(1, 4) = dt;
         KF.transitionMatrix.at<double>(2, 5) = dt;
         KF.transitionMatrix.at<double>(3, 6) = dt;
-        KF.transitionMatrix.at<double>(4, 7) = dt;
+        KF.transitionMatrix.at<double>(4, 7) = dt; 
         KF.transitionMatrix.at<double>(5, 8) = dt;
         KF.transitionMatrix.at<double>(0, 6) = 0.5 * pow(dt, 2);
         KF.transitionMatrix.at<double>(1, 7) = 0.5 * pow(dt, 2);
@@ -413,9 +416,9 @@ public:
         }
         file.write((char*)bytes.data(), bytes.size());
     }
-    void UpdatecameraTextureGPU() {
-#ifdef __linux__ //OGL
-
+    void UpdatecameraTextureGPU() { 
+#ifdef __linux__ //OGL 
+         
 #else
         if (m_Device != nullptr) {
             if (hasReceivedCameraStream) {
@@ -573,7 +576,7 @@ public:
             serialPort.Close();
 #else
             Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
-            if (Serial->WriteSerialPort("r\r\n")) {
+            if (Serial->WriteSerialPort("r\r\n")) { 
                 Debug::Log("Restarted the t265/1",Color::Green);  
                 std::this_thread::sleep_for(std::chrono::seconds(1));
             } 
@@ -674,6 +677,7 @@ public:
                             ToEulerAngles(qq, eu);
                             fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                             updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
+
                         } 
                         if (quaternionCallback != nullptr) {
                             quaternionCallback(f, eu.x, eu.y, eu.z);
@@ -732,11 +736,27 @@ public:
                                 rs2::stream_profile fisheye_stream = myProf.get_stream(RS2_STREAM_FISHEYE, 1);
                                 intrinsics = fisheye_stream.as<rs2::video_stream_profile>().get_intrinsics();
                                 rs2_extrinsics pose_to_fisheye_extrinsics = myProf.get_stream(RS2_STREAM_POSE).get_extrinsics_to(fisheye_stream);
+                                fx = intrinsics.fx;
+                                fy = intrinsics.fy;
+                                cx = intrinsics.ppx;
+                                cy = intrinsics.ppy;
+                                d1 = intrinsics.coeffs[0];
+                                d2 = intrinsics.coeffs[1];
+                                d3 = intrinsics.coeffs[2];
+                                d4 = intrinsics.coeffs[3];                                
                                 intrinsicsL = (cv::Mat_<double>(3, 3) <<
-                                    intrinsics.fx, 0, intrinsics.ppx,
-                                    0, intrinsics.fy, intrinsics.ppy, 0, 0, 1);
+                                    fx, 0, cx,
+                                    0, fy, cy, 0, 0, 1);
+                                ostringstream oss5;
+                                for (int i = 0; i < sizeof(intrinsics.coeffs)/sizeof(float); i++) {
+                                    oss5 << "Intrinsics: " << i << " : " << intrinsics.coeffs[i] << std::endl;
+                                }                                
+                                Debug::Log(oss5.str(), Color::Blue);
+                                ostringstream oss6; 
+                                oss6 << "Extrinsics: " << intrinsics.fx << "," << intrinsics.fy << "," << intrinsics.ppx << "," << intrinsics.ppy << std::endl;
+                                Debug::Log(oss6.str(), Color::Blue);
                                 distCoeffsL = cv::Mat(1, 5, CV_32F, intrinsics.coeffs);
-                                cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << distCoeffsL.at<double>(0, 0), distCoeffsL.at<double>(1, 0), distCoeffsL.at<double>(2, 0), distCoeffsL.at<double>(3, 0));
+                                cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << intrinsics.coeffs[0], intrinsics.coeffs[1], intrinsics.coeffs[2], intrinsics.coeffs[3]);
                                 cv::Mat identity = cv::Mat::eye(3, 3, CV_64F);
                                 cv::Mat PP1(3, 4, cv::DataType<float>::type);
                                 intrinsicsL.copyTo(PP1.rowRange(0, 3).colRange(0, 3));
@@ -749,12 +769,16 @@ public:
 
                             }
                             fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
-                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA);
+                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA,4);
                             if (!hasReceivedCameraStream) {
                                 fisheye_mat_color_undistort = fisheye_mat_color.clone();
+                                fisheye_mat_color_cpu = fisheye_mat_color.clone();
                             }
                             try {
-                                cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
+                                if (!LockImage) {
+                                    cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
+                                    fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
+                                }
                             }
                             catch (cv::Exception& e) {
                                 Debug::Log(e.what(), Color::Red);
@@ -766,10 +790,21 @@ public:
                                     double focalLength = 0;
                                     double aspectRatio = 0;
                                     cv::Point2d myPrincipalPoint;
-                                    cv::calibrationMatrixValues(intrinsicsL, cv::Size(848, 800), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
-                                    textureInitializedCallback(w, h, 4, intrinsics.fx, intrinsics.fy, intrinsics.ppx, intrinsics.ppy, fovX, fovY, focalLength);
+                                    cv::calibrationMatrixValues(intrinsicsL, cv::Size(w, h), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
+
+                                    textureInitializedCallback(w, h, 4, fx,fy,cx,cy, fovX, fovY, focalLength, d1,d2, d3, d4, 1);
                                 }
                                 hasReceivedCameraStream = true;
+                            }
+                            else {
+                                for (std::vector<TrackerImageCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
+                                    if ((*it) != nullptr) {
+                                        if ((*it)->callback != nullptr)
+                                            (*it)->callback(fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
+                                        if ((*it)->callbackWithID != nullptr)
+                                            (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
+                                    }
+                                }
                             }
                         }
                     }
@@ -904,5 +939,18 @@ public:
         }
 #endif
         Debug::Log("Closed Tracker!",Color::Green);   
+    }
+    void SubscribeReceiver(FuncReceiveCameraImageCallback callback) {
+        Debug::Log("Subscribing normal receiver: ");
+        TrackerImageCallback* c = new TrackerImageCallback();
+        c->callback = callback;
+        subscribedImageReceivers.push_back(c);
+    }
+    void SubscribeReceiver(int callbackID, FuncReceiveCameraImageCallbackWithID callback) {
+        Debug::Log("Subscribing texture receiver: ");
+        TrackerImageCallback* c = new TrackerImageCallback();
+        c->instanceID = callbackID;
+        c->callbackWithID = callback;
+        subscribedImageReceivers.push_back(c);
     }
 };
