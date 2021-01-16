@@ -71,7 +71,7 @@ public:
         return v;
     }
 
-    bool DoExit3 = false;
+    bool ExitThreadLoop = false;
     void raw_file_from_bytes(const std::string& filename, const std::vector<uint8_t> bytes)
     {
         std::ofstream file(filename, std::ios::binary | std::ios::trunc);
@@ -86,7 +86,7 @@ public:
     std::vector<unsigned char> myMapData;
     bool mapDataLoaded = false;
     void StopTracking() {
-        DoExit3 = true;
+        ExitThreadLoop = true;
     }
     bool doSetOriginMapInfo = false;
     void SetOrigin() {
@@ -180,7 +180,7 @@ public:
     void DoFunctionTracking() {
 
         //The outer loop (allows for device graceful restarts)
-        while (!DoExit3) {
+        while (!ExitThreadLoop) {
             try {
                 Camera zed;
                 didLoadMap = false;
@@ -370,7 +370,7 @@ public:
                         shouldUploadData = true;
                         shouldRestart = true;
                     }
-                    if (DoExit3) {//if we should exit, exit the tracker loop first
+                    if (ExitThreadLoop) {//if we should exit, exit the tracker loop first
                         shouldRestart = true;
                     }
                 }

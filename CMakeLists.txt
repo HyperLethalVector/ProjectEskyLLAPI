@@ -81,7 +81,8 @@ include_directories(./include/)
 #T265
 if(WIN32)
 add_library(libProjectEskyLLAPIIntel SHARED 
-./src/Tracker/IntelT265/main.cpp 
+./src/Filters/DollaryDooFilter.h
+./src/Tracker/IntelT265/main.cpp  
 ./src/Tracker/IntelT265/Tracker.cpp 
 ./src/Tracker/IntelT265/Serial.cpp 
 ./include/Serial.h)

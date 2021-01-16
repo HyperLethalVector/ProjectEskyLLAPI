@@ -101,10 +101,8 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 				devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
 				dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
-				dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
 				dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
 				dataPtr->toggleConfigs = myShaderVals2.toggleConfigs;
-				dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 				devcon->Unmap(g_pConstantBuffer11_2, 0);
 				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
@@ -124,9 +122,7 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 		else {
 			std::this_thread::sleep_for(std::chrono::milliseconds(4));
 		}
-
 	}
-
 } 
 void Graphics::GraphicsRelease() {
 	CleanD3D();
@@ -392,7 +388,6 @@ void Graphics::CleanD3D()
 		swapchain->Release();
 		dev->Release();
 		devcon->Release();
-
 		swapchain = NULL;
 		dev = NULL;
 		devcon = NULL;

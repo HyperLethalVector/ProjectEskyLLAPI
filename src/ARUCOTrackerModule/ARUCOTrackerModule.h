@@ -3,8 +3,7 @@
 #include <opencv2/aruco.hpp>
 #include <opencv2/video/tracking.hpp>
 using namespace cv;
-typedef void(*FuncCallBack)(const char* message, int color, int size);
-static FuncCallBack callbackInstance = nullptr;
+
 typedef void(*FuncPoseReceiveCallback)(int instanceID, float tx, float ty, float tz, float rx, float ry, float rz);
 class ARUCOPoseReceiveCallback{
 public:

@@ -34,31 +34,32 @@
     #include "Serial.h"
 #endif
 #define PI 3.141592653
-typedef void(*FuncReceiveCameraImageCallback)(unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
-typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
-class TrackerImageCallback {
+typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, 
+                                                    int lengthofarray, int width, int height, int pixelCount);
+
+
+typedef void(*LocalizationCallback)(int trackerID, int LocalizationDelegate);
+typedef void(*MapDataCallback)(int trackerID);
+typedef void(*LocalizationPoseCallback)(int trackerID, string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
+typedef void(*FuncDeltaMatrixConvertCallback)(float* matrixToReturn, bool isLeft, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
+typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
+typedef void(*FuncDeltaPoseUpdateCallback)(int trackerID, float* poseDataLeft, float* poseDataRight);//needs refactoring into a map callback to subscribe to
+typedef void(*FuncTextureInitializedCallback)(int trackerID, int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength, float d1, float d2, float d3, float d4, float d5);
+class SensorInfoCallback {
 public:
-    FuncReceiveCameraImageCallback callback;
     FuncReceiveCameraImageCallbackWithID callbackWithID;
     int instanceID = 0;
 };
 class TrackerObject {
 public:
-    typedef void(*QuaternionCallback)(float* arrayToCopy, float eux, float euy, float euz);
-    typedef void(*FuncCallBack2)(int LocalizationDelegate);
-    typedef void(*FuncCallBack3)(unsigned char* binaryData, int Length);
-    typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
-    typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount, float fx, float fy, float cx, float cy, float fovx, float fovy, float focalLength,  float d1, float d2, float d3, float d4, float d5);
-    typedef void(*FuncMatrixDeltaConvert)(float* matrixToReturn, float* inverseToReturn,bool isLeft, float tx_A, float ty_A, float tz_A, float qx_A, float qy_A, float qz_A, float qw_A, float tx_B, float ty_B, float tz_B, float qx_B, float qy_B, float qz_B, float qw_B);
-    typedef void(*FuncDeltaPoseUpdateCallback)(float* poseDataLeft, float* poseDataLeftInv, float* poseDataRight, float* poseDataRightInv, int length);
-    std::vector<TrackerImageCallback*> subscribedImageReceivers;
+    std::vector<SensorInfoCallback*> subscribedImageReceivers;
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
     FuncTextureInitializedCallback textureInitializedCallback = nullptr;
-    FuncCallBack2 callbackLocalization = nullptr;
-    FuncCallBack3 callbackBinaryMap = nullptr;
-    FuncCallBack4 callbackObjectPoseReceived = nullptr;
-    FuncMatrixDeltaConvert callbackMatrixConvert = nullptr;
+    LocalizationCallback callbackLocalization = nullptr;
+    MapDataCallback callbackBinaryMap = nullptr;
+    LocalizationPoseCallback callbackObjectPoseReceived = nullptr;
+    FuncDeltaMatrixConvertCallback callbackMatrixConvert = nullptr;
     FuncDeltaPoseUpdateCallback callbackDeltaPoseUpdate = nullptr;
 #ifdef __linux__ //OGL
 
@@ -66,18 +67,14 @@ public:
     ID3D11Device* m_Device;
     ID3D11Texture2D* d3dtex;
 #endif
+    int TrackerID;
     bool resetInitialPose = true;
     bool LockImage = false;
     float* pose = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* poseInitial = new float[7]{ 0,0,0,0,0,0,0 };
     float* poseFinal = new float[7]{ 0,0,0,0,0,0,0 };
-
     float* poseFromWorldToMap = new float[7] {0, 0, 0, 0, 0, 0, 0};
     float* deltaPoseLeftArray = new float[16]{ 1,0,0,0,
-                                     0,1,0,0,
-                                     0,0,1,0,
-                                     0,0,0,1 };
-    float* deltaPoseLeftInvArray = new float[16]{ 1,0,0,0,
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
@@ -85,26 +82,18 @@ public:
                                      0,1,0,0,
                                      0,0,1,0,
                                      0,0,0,1 };
-    float* deltaPoseRightInvArray = new float[16]{ 1,0,0,0,
-                                     0,1,0,0,
-                                     0,0,1,0,
-                                     0,0,0,1 };
     float fx, fy, cx, cy, d1, d2, d3, d4, d5 = 0;
-
-    //get intrinsics as float array
-    // the fisheye mat
     cv::Mat fisheye_mat;
     cv::Mat fisheye_mat_color;
     cv::Mat fisheye_mat_color_undistort;
     cv::Mat fisheye_mat_color_cpu;
     cv::Mat lm1, lm2;
-    cv::Mat affineTransform;
     rs2_pose object_in_world_pose_frame;
     EulerAngles eulerAnglesPrev;
     cv::Point3f transPrev;
-
     EulerAngles eulerAnglesPost;
     cv::Point3f transPost;
+
     bool hasLocalized = false;
     unsigned char* fileLocation;
     int textureWidth = 0;
@@ -407,7 +396,7 @@ public:
         P.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
         return P;
     }
-    bool DoExit3 = false;
+    bool ExitThreadLoop = false;
     void raw_file_from_bytes(const std::string& filename, const std::vector<uint8_t> bytes)
     {
         std::ofstream file(filename, std::ios::binary | std::ios::trunc);
@@ -439,43 +428,16 @@ public:
     std::vector<unsigned char> myMapData;
     bool mapDataLoaded = false;
     void StopTracking() {
-        DoExit3 = true;
-    }
-    bool doSetOriginMapInfo = false;
-    void SetOrigin() {
-        doSetOriginMapInfo = true;
+        ExitThreadLoop = true;
     }
     bool grabOriginPose = false;
-    void GrabObjectPose(string objectID) {
+    void GrabPoseInOrigin() {
         if (hasLocalized) {
-            Debug::Log("Was able to call back, but needs to fire events locally");
             grabOriginPose = true;
         }
         else {
             Debug::Log("ERROR: The map hasn't localized yet!", Color::Red);
         }
-    }
-    void ClearObjectPoses() {
-        posesToUpdate.clear();
-    }
-    void SetObjectPose(const char* objReference, float tx, float ty, float tz, float qx, float qy, float qz, float qw) {
-        Debug::Log("Attempting to set rs2pose");
-        Debug::Log(objReference);
-
-        poseRefObjct.translation.x = tx;
-        poseRefObjct.translation.y = ty;
-        poseRefObjct.translation.z = tz;
-
-        poseRefObjct.rotation.x = qx;
-        poseRefObjct.rotation.y = qy;
-        poseRefObjct.rotation.z = qz;
-        poseRefObjct.rotation.w = qw;
-        Debug::Log("Should try to save the info now");
-        posesToUpdate.insert(std::pair<string, rs2_pose>(objReference, poseRefObjct));
-
-    }
-    void ProcessPoseCache() {
-
     }
     void SetTexturePointer(void* textureHandle) {
 #ifdef __linux__ //OGL
@@ -486,11 +448,7 @@ public:
     }
     void GrabMap() {
         if (callbackBinaryMap != nullptr) {
-            Debug::Log("Attempting to obtain localization map", Color::Red);
             shouldGrabMap = true;
-        }
-        else {
-            Debug::Log("ERROR: map callback doesn't exist? How the F*@(#& did this happen when it's supposed to on awake? Zzzz", Color::Red);
         }
     }
     bool isFirst = true;
@@ -499,9 +457,11 @@ public:
     std::vector<uint8_t> mapDataToLoad;
     bool shouldLoadMap = false;
     bool shouldGrabMap = false;
-    void ImportMap(uint8_t* mapData, int length) {
-            Debug::Log("Loading map!", Color::Green);
-            shouldLoadMap = true;
+    bool canPowerCycle = false;
+    rs2::context myCon;
+    rs2::device myDev;
+    void FlagMapImport() {
+       shouldLoadMap = true;
     }
     void SetComPortString(int port) {
         switch (port) {
@@ -583,7 +543,7 @@ public:
             Serial->CloseSerialPort();
 #endif
         }
-        while (!DoExit3) {
+        while (!ExitThreadLoop) {
             try {
                 bool receivedPoseFirst = false;
                 cv::Point2f srcTri[3];
@@ -607,15 +567,24 @@ public:
                 rs2::pipeline_profile myProf;
                 Quaternion qq;
                 EulerAngles eu;
+                std::vector<std::string> serials;
+                uint32_t dev_q;
+                rs2::context ctx;
+                dev_q = ctx.query_devices().size();
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,1);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,2);
+                for (rs2::device &&dev : ctx.query_devices())
+                {
+                    serials.push_back(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
+                }
+                cfg.enable_device(serials[TrackerID]);
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
                         hasLocalized = true;
                         if (callbackLocalization != nullptr) {
-                            callbackLocalization(1);
+                            callbackLocalization(TrackerID,1);
                         }
                         else {
                             Debug::Log("The callback doesn't exist, wtf?",Color::Red);
@@ -667,9 +636,6 @@ public:
                         ToEulerAngles(qq, eu);
                         fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                         updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
-                        pose[0] = predicted_pose.translation.x;
-                        pose[1] = predicted_pose.translation.y;
-                        pose[2] = predicted_pose.translation.z;
                         if (std::abs(EulerPre.x - eu.x) > 90 || std::abs(EulerPre.y - eu.y) > 90 || std::abs(EulerPre.z - eu.z) > 90) {//we are jumping rotation poses, reset the kalman filter and use the raw measurements for this frame
                             Debug::Log("Jumping Pose");
                             initKalmanFilter(KF, nStates, nMeasurements, nInputs, dt);
@@ -677,11 +643,13 @@ public:
                             ToEulerAngles(qq, eu);
                             fillMeasurements(measurements, predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, eu.x, -eu.y, -eu.z); //add the measurement to the filter
                             updateKalmanFilter(KF, measurements, predicted_pose, eu); // update the predicted value
-
                         } 
                         if (quaternionCallback != nullptr) {
                             quaternionCallback(f, eu.x, eu.y, eu.z);
                         }
+                        pose[0] = predicted_pose.translation.x;
+                        pose[1] = predicted_pose.translation.y;
+                        pose[2] = predicted_pose.translation.z;
                         pose[3] = f[0];
                         pose[4] = f[1];
                         pose[5] = f[2]; 
@@ -695,10 +663,6 @@ public:
                             poseInitial[4] = final_reading_fused.rotation.y;
                             poseInitial[5] = final_reading_fused.rotation.z;
                             poseInitial[6] = final_reading_fused.rotation.w;
-
-//                            for (int i = 0; i < 7; i++) {
-  //                              poseInitial[i] = pose[i];
-    //                        }
                         }
                         poseFinal[0] = final_reading_fused.translation.x;
                         poseFinal[1] = final_reading_fused.translation.y;
@@ -708,18 +672,18 @@ public:
                         poseFinal[5] = final_reading_fused.rotation.z;
                         poseFinal[6] = final_reading_fused.rotation.w;
                         try {
-                            if (callbackMatrixConvert != nullptr) {
-                                callbackMatrixConvert(deltaPoseLeftArray, deltaPoseLeftInvArray, true,
-                                    poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
-                                    poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
-                                );
-                                callbackMatrixConvert(deltaPoseRightArray, deltaPoseRightInvArray, false,
-                                    poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
-                                    poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
-                                );
+                            if (callbackMatrixConvert != nullptr) {//needs refactoring and throwing down to the c++ level
+//                                callbackMatrixConvert(deltaPoseLeftArray, true,
+//                                    poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
+//                                    poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
+//                                );
+ //                               callbackMatrixConvert(deltaPoseRightArray, false,
+  //                                  poseInitial[0], poseInitial[1], poseInitial[2], poseInitial[3], poseInitial[4], poseInitial[5], poseInitial[6],
+  //                                  poseFinal[0], poseFinal[1], poseFinal[2], poseFinal[3], poseFinal[4], poseFinal[5], poseFinal[6]
+  //                              );
                             }
                             if (callbackDeltaPoseUpdate != nullptr) {
-                                callbackDeltaPoseUpdate(deltaPoseLeftArray, deltaPoseLeftInvArray, deltaPoseRightArray, deltaPoseRightInvArray, 15);
+                                callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
                             }
                         }
                         catch (std::exception e) {
@@ -747,14 +711,6 @@ public:
                                 intrinsicsL = (cv::Mat_<double>(3, 3) <<
                                     fx, 0, cx,
                                     0, fy, cy, 0, 0, 1);
-                                ostringstream oss5;
-                                for (int i = 0; i < sizeof(intrinsics.coeffs)/sizeof(float); i++) {
-                                    oss5 << "Intrinsics: " << i << " : " << intrinsics.coeffs[i] << std::endl;
-                                }                                
-                                Debug::Log(oss5.str(), Color::Blue);
-                                ostringstream oss6; 
-                                oss6 << "Extrinsics: " << intrinsics.fx << "," << intrinsics.fy << "," << intrinsics.ppx << "," << intrinsics.ppy << std::endl;
-                                Debug::Log(oss6.str(), Color::Blue);
                                 distCoeffsL = cv::Mat(1, 5, CV_32F, intrinsics.coeffs);
                                 cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << intrinsics.coeffs[0], intrinsics.coeffs[1], intrinsics.coeffs[2], intrinsics.coeffs[3]);
                                 cv::Mat identity = cv::Mat::eye(3, 3, CV_64F);
@@ -766,7 +722,6 @@ public:
                                 catch (cv::Exception& e) {
                                     Debug::Log(e.what(), Color::Red);
                                 }
-
                             }
                             fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
                             cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA,4);
@@ -778,6 +733,13 @@ public:
                                 if (!LockImage) {
                                     cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
                                     fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
+                                    for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
+                                        if ((*it) != nullptr) {
+                                            if ((*it)->callbackWithID != nullptr) {
+                                                (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             catch (cv::Exception& e) {
@@ -791,43 +753,23 @@ public:
                                     double aspectRatio = 0;
                                     cv::Point2d myPrincipalPoint;
                                     cv::calibrationMatrixValues(intrinsicsL, cv::Size(w, h), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
-
-                                    textureInitializedCallback(w, h, 4, fx,fy,cx,cy, fovX, fovY, focalLength, d1,d2, d3, d4, 1);
+                                    textureInitializedCallback(TrackerID,w, h, 4, fx,fy,cx,cy, fovX, fovY, focalLength, d1,d2, d3, d4, 1);
                                 }
                                 hasReceivedCameraStream = true;
                             }
-                            else {
-                                for (std::vector<TrackerImageCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
-                                    if ((*it) != nullptr) {
-                                        if ((*it)->callback != nullptr)
-                                            (*it)->callback(fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
-                                        if ((*it)->callbackWithID != nullptr)
-                                            (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
-                                    }
-                                }
-                            }
+
+                            
                         }
                     }
-                    });
-                 
-
-
-                Debug::Log("Tracker started!", Color::Green);
+                    });                
                 shouldRestart = false;
-
-                while (!shouldRestart && !DoExit3) {
+                while (!shouldRestart && !ExitThreadLoop) {
                     if (grabOriginPose) {
                         grabOriginPose = false;
                         if (tm_sensor.get_static_node("bugorigin", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
                             if (callbackObjectPoseReceived != nullptr) {
-                                callbackObjectPoseReceived("origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
+                                callbackObjectPoseReceived(TrackerID,"origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
                             }
-                            else {
-                                Debug::Log("Wtf? There's no callback?", Color::Red);
-                            }
-                        }
-                        else {
-                            Debug::Log("ERROR: The object could not be found!", Color::Red);
                         }
                     }
                     //need to get callback saying we have images ready to go!
@@ -844,21 +786,15 @@ public:
                         p.rotation.z = 0;
                         p.rotation.w = 1;
                         if (tm_sensor.set_static_node("bugorigin", p.translation, p.rotation)) {
-                            ostringstream oss;
-                            oss << "Exported pose for: " << "origin" << std::endl;
-                            Debug::Log(oss.str(), Color::Red);
                         }
                         else {
-                            ostringstream oss;
-                            oss << "Unable to export pose for: " << "origin" << std::endl;
-                            Debug::Log(oss.str(), Color::Red);
                         }
                         try {
                             std::this_thread::sleep_for(std::chrono::seconds(2));
                             rs2::calibration_table res = tm_sensor.export_localization_map();
                             std::this_thread::sleep_for(std::chrono::seconds(2));
                             raw_file_from_bytes("temp.raw", res);
-                            callbackBinaryMap(NULL, NULL);
+                            callbackBinaryMap(TrackerID);
                         }
                         catch (const std::exception& ex) {
                             // ...
@@ -884,33 +820,29 @@ public:
                         shouldUploadData = true;
                         shouldRestart = true;
                     }
-                    if (DoExit3) {//if we should exit, exit the tracker loop first
+
+                    if (ExitThreadLoop) {//if we should exit, exit the tracker loop first
                         shouldRestart = true;
                     }
-//                    cv::warpAffine(img, postWarp, aff, postWarp.size());
-  //                  cv::imshow("Pre warped", img);
-    //                cv::imshow("warped output ", postWarp); 
                 }
                 if (usesIntegrator) {
 #ifdef __linux__
-                    SerialPort serialPort(com_port, BaudRate::B_9600);
+                    SerialPort serialPort(com_port, BaudRate::B_9600); 
                     serialPort.SetTimeout(-1); // Block when reading until any data is received
                     serialPort.Open();
                     serialPort.Write("r\r\n");
                     serialPort.Close();
 #else
-                    Debug::Log("Attempting to restart after finishing", Color::Green);
                     Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
                     if (Serial->WriteSerialPort("r\r\n")) {
                         Debug::Log("Restarted the t265/1", Color::Green);
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                     }
                     Serial->CloseSerialPort();
-#endif
+#endif 
                 }
                 pipe.stop(); 
-               
-                if (DoExit3) {
+                if (ExitThreadLoop) {
                     break;
                 }
             }
@@ -940,15 +872,8 @@ public:
 #endif
         Debug::Log("Closed Tracker!",Color::Green);   
     }
-    void SubscribeReceiver(FuncReceiveCameraImageCallback callback) {
-        Debug::Log("Subscribing normal receiver: ");
-        TrackerImageCallback* c = new TrackerImageCallback();
-        c->callback = callback;
-        subscribedImageReceivers.push_back(c);
-    }
-    void SubscribeReceiver(int callbackID, FuncReceiveCameraImageCallbackWithID callback) {
-        Debug::Log("Subscribing texture receiver: ");
-        TrackerImageCallback* c = new TrackerImageCallback();
+    void SubscribeReceiver(FuncReceiveCameraImageCallbackWithID callback, int callbackID) {
+        SensorInfoCallback* c = new SensorInfoCallback();
         c->instanceID = callbackID;
         c->callbackWithID = callback;
         subscribedImageReceivers.push_back(c);

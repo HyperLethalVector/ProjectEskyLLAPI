@@ -38,14 +38,10 @@
 #include <map>
 
 using namespace cv;
-typedef void(*FuncCallBack)(const char* message, int color, int size);
-static FuncCallBack callbackInstance = nullptr;
 typedef void(*FuncTextureInitializedCallback)(int TextureWidth, int TextureHeight, int textureCount);
-typedef void(*FuncReceiveCameraImageCallback)(unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
 typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, int lengthofarray, int width, int height, int pixelCount);
 class RGBSensorInfoCallback {
 public:
-	FuncReceiveCameraImageCallback callback;
 	FuncReceiveCameraImageCallbackWithID callbackWithID;
 	int instanceID = 0;
 };
@@ -118,14 +114,8 @@ public:
 			}
 		}
 		else {
-		//	Debug::Log("GPU DEVICE NULL");
 		}
 #endif
-	}
-	void SubscribeReceiver(FuncReceiveCameraImageCallback callback) {
-		RGBSensorInfoCallback* c = new RGBSensorInfoCallback();
-		c->callback = callback;
-		subscribedImageReceivers.push_back(c);
 	}
 	void SubscribeReceiver(int callbackID, FuncReceiveCameraImageCallbackWithID callback) {
 		RGBSensorInfoCallback* c = new RGBSensorInfoCallback();
@@ -178,8 +168,6 @@ public:
 			try {
 				for (std::vector<RGBSensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
 					if ((*it) != nullptr) {
-						if ((*it)->callback != nullptr)
-							(*it)->callback(undistorted.data, undistorted.rows * undistorted.cols, undistorted.cols, undistorted.rows, undistorted.channels());
 						if ((*it)->callbackWithID != nullptr)
 							(*it)->callbackWithID((*it)->instanceID, undistorted.data, undistorted.rows * undistorted.cols, undistorted.cols, undistorted.rows, undistorted.channels());
 					}

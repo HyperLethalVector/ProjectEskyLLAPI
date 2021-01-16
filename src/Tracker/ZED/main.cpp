@@ -32,7 +32,7 @@ extern "C" {
     DLL_EXPORT void StopTrackers() {
         if (to != nullptr) {
             Debug::Log("Stopping ZED Tracking");
-            to->DoExit3 = true;
+            to->ExitThreadLoop = true;
         }
     } 
     std::thread* t3;
@@ -43,7 +43,7 @@ extern "C" {
     }
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
         Debug::Log("Started Tracking Thread");
-        to->DoExit3 = false; 
+        to->ExitThreadLoop = false; 
         t3 = new std::thread(DoFunction3);
     }
     DLL_EXPORT float* GetLatestPose() {
@@ -84,8 +84,7 @@ extern "C" {
         } 
     }     
     
-    typedef void(*FuncCallBack)(const char* message, int color, int size);
-    static FuncCallBack callbackInstance = nullptr;
+
     typedef void(*FuncCallBack2)(int LocalizationDelegate);
     typedef void(*FuncCallBack3)(unsigned char* binaryData,int Length);
     typedef void(*FuncCallBack4)(string ObjectID, float tx, float ty, float tz, float qx, float qy, float qz, float qw);
@@ -177,16 +176,6 @@ extern "C" {
         }
     }
 }
-void Debug::Log(const char* message, Color color) {
-    if (callbackInstance != nullptr)  
-        callbackInstance(message, (int)color, (int)strlen(message));
-} 
-
-void  Debug::Log(const std::string message, Color color) {
-    const char* tmsg = message.c_str();
-    if (callbackInstance != nullptr)
-        callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
-} 
 static void UNITY_INTERFACE_API OnRenderEvent(int eventID)  
 {
     if (to != nullptr) {
@@ -198,47 +187,6 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
 {
     return OnRenderEvent;
 }
-void  Debug::Log(const int message, Color color) { 
-    std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-} 
-
-void  Debug::Log(const char message, Color color) {
-    std::stringstream ss; 
-    ss << message; 
-    send_log(ss, color);
-}
- 
-void  Debug::Log(const float message, Color color) {
-    std::stringstream ss;
-    ss << message; 
-    send_log(ss, color);
-} 
-
-void  Debug::Log(const double message, Color color) {
-    std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-}
- 
-void Debug::Log(const bool message, Color color) {
-    std::stringstream ss;
-    if (message)
-        ss << "true"; 
-    else
-        ss << "false"; 
-
-    send_log(ss, color);
-}
-
-void Debug::send_log(const std::stringstream& ss, const Color& color) {
-    const std::string tmp = ss.str();
-    const char* tmsg = tmp.c_str(); 
-    if (callbackInstance != nullptr)
-        callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
-}
-  
 //Create a callback delegate 
 void RegisterDebugCallback(FuncCallBack cb) { 
     callbackInstance = cb;
