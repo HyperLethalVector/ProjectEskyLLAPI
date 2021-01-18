@@ -100,7 +100,6 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRenderTextureWidth
 	if (windowIds.count(id)) {
 		windowGraphics[id].unityTextureWidth = width;
 		windowGraphics[id].unityTextureHeight = height;
-
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetEnableFlagWarping(int id, bool enabled) {
@@ -123,10 +122,10 @@ void DoBackgroundRender(int ID) {
 	}
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopWindowById(int windowId) {
-		windowGraphics[windowId].SetCloseFromUnity(true);
-		PostMessage(windowIds[windowId], WM_CLOSE, 0, 0); 
-		windowIds.erase(windowId);
-		myThreads[windowId] = nullptr;
+	windowGraphics[windowId].SetCloseFromUnity(true);
+	PostMessage(windowIds[windowId], WM_CLOSE, 0, 0); 
+	windowIds.erase(windowId);
+	myThreads[windowId] = nullptr;
 }
   
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRectById(int windowId, int left, int top, int width, int height) {

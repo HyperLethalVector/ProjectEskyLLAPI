@@ -60,7 +60,7 @@ public:
 	cv::Mat RGBAFrame;
 	cv::Mat undistorted;
 	int textureChannels;
-	bool LockImage;
+	bool LockImage; 
 	std::vector<RGBSensorInfoCallback*> subscribedImageReceivers;
 	ID3D11Device* m_Device;
 #ifdef __linux__ //OGL

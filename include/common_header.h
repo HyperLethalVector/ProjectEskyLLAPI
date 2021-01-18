@@ -12,19 +12,8 @@
 #include <queue>
 #include <map>
 #include <set>
-
+#define Math_PI 3.14159265
 using namespace std;
-
-struct Quaternion {
-    double w, x, y, z;
-};
-
-struct EulerAngles {
-    double x, y, z;
-};
-struct Translation {
-    double x, y, z;
-};
 // Some useful defines
 
 #define FOR(q,n) for(int q=0;q<n;q++)
