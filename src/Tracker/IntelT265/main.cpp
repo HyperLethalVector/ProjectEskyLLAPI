@@ -129,14 +129,14 @@ extern "C" {
     }
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) {
         to[iD]->callbackObjectPoseReceived = cb;
-    }
+    } 
     DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
         to[iD]->callbackBinaryMap = cb; 
-    }   
+    }        
     DLL_EXPORT void SetSerialComPort(int iD, int port) { 
         to[iD]->usesIntegrator = true; 
         to[iD]->SetComPortString(port); 
-    }      
+    }       
     DLL_EXPORT void SetRenderTexturePointer(int iD, void* textureHandle) {
         to[iD]->SetTexturePointer(textureHandle);
     } 
