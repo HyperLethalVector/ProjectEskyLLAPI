@@ -85,7 +85,7 @@ extern "C" {
         s_UnityInterfaces = unityInterfaces;  
         s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
         s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-        OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);   
+       // OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);   
     } 
       
     extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
