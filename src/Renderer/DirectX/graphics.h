@@ -30,10 +30,10 @@ typedef struct ShaderVals {//float is 4 bytes
 	DirectX::XMFLOAT4X4 leftUvToRectY;
 	DirectX::XMFLOAT4X4 rightUvToRectX;
 	DirectX::XMFLOAT4X4 rightUvToRectY;
-	DirectX::XMFLOAT4X4 cameraMatrixLeft;
-	DirectX::XMFLOAT4X4 cameraMatrixRight;
-	DirectX::XMFLOAT4X4 InvCameraMatrixLeft;
-	DirectX::XMFLOAT4X4 InvCameraMatrixRight;
+	DirectX::XMFLOAT4X4 cameraMatrixLeftPolynomial;
+	DirectX::XMFLOAT4X4 cameraMatrixRightPolynomial;
+	DirectX::XMFLOAT4X4 cameraProjectionMatrixPerEye;
+	DirectX::XMFLOAT4X4 cameraProjectionMatrixPerEyeInv;
 	DirectX::XMFLOAT4 eyeBordersLeft;
 	DirectX::XMFLOAT4 eyeBordersRight;
 	DirectX::XMFLOAT4 offsets;
@@ -143,10 +143,10 @@ public:
 		float leftUvToRectY[],// = { 0.0 };
 		float rightUvToRectX[],// = { 0.0 };
 		float rightUvToRectY[],// = { 0.0 }; 
-		float CameraMatrixLeft[],// = { 0.0 };
-		float CameraMatrixRight[],// = { 0.0 };
-		float InvCameraMatrixLeft[],// = { 0.0 };
-		float InvCameraMatrixRight[],// = { 0.0 };
+		float PolynomialCameraProjectionMatrixLeft[],// = { 0.0 };
+		float PolynomialCameraProjectionMatrixRight[],// = { 0.0 };
+		float CameraProjectionMatrixPerEye[],// = { 0.0 };
+		float CameraProjectionMatrixPerEyeInv[],// = { 0.0 };
 		float leftOffset[],// = { 0.0 };
 		float rightOffset[],// = { 0.0 };
 		float eyeBorders[]) {
@@ -160,10 +160,10 @@ public:
 				myShaderVals.leftUvToRectY.m[x][y] = leftUvToRectY[y * 4 + x];
 				myShaderVals.rightUvToRectX.m[x][y] = rightUvToRectX[y * 4 + x];
 				myShaderVals.rightUvToRectY.m[x][y] = rightUvToRectY[y * 4 + x];
-				myShaderVals.cameraMatrixLeft.m[x][y] = CameraMatrixLeft[y * 4 + x];
-				myShaderVals.cameraMatrixRight.m[x][y] = CameraMatrixRight[y * 4 + x];
-				myShaderVals.InvCameraMatrixLeft.m[x][y] = InvCameraMatrixLeft[y * 4 + x];
-				myShaderVals.InvCameraMatrixRight.m[x][y] = InvCameraMatrixRight[y * 4 + x];
+				myShaderVals.cameraMatrixLeftPolynomial.m[x][y] = PolynomialCameraProjectionMatrixLeft[y * 4 + x];
+				myShaderVals.cameraMatrixRightPolynomial.m[x][y] = PolynomialCameraProjectionMatrixRight[y * 4 + x];
+				myShaderVals.cameraProjectionMatrixPerEye.m[x][y] = CameraProjectionMatrixPerEye[y * 4 + x];
+				myShaderVals.cameraProjectionMatrixPerEyeInv.m[x][y] = CameraProjectionMatrixPerEyeInv[y * 4 + x];
 				myShaderVals2.deltaPoseLeft.m[x][y] = 0.0f;
 				myShaderVals2.deltaPoseRight.m[x][y] = 0.0f;
 			}
@@ -180,12 +180,12 @@ public:
 			dataPtr->leftUvToRectY = myShaderVals.leftUvToRectY;
 			dataPtr->rightUvToRectX = myShaderVals.rightUvToRectX;
 			dataPtr->rightUvToRectY = myShaderVals.rightUvToRectY;
-			dataPtr->cameraMatrixLeft = myShaderVals.cameraMatrixLeft;
-			dataPtr->cameraMatrixRight = myShaderVals.cameraMatrixRight;
+			dataPtr->cameraMatrixLeftPolynomial = myShaderVals.cameraMatrixLeftPolynomial;
+			dataPtr->cameraMatrixRightPolynomial = myShaderVals.cameraMatrixRightPolynomial;
 			dataPtr->eyeBordersLeft = myShaderVals.eyeBordersLeft;
 			dataPtr->eyeBordersRight = myShaderVals.eyeBordersRight;
-			dataPtr->InvCameraMatrixLeft = myShaderVals.InvCameraMatrixLeft;
-			dataPtr->InvCameraMatrixRight = myShaderVals.InvCameraMatrixRight;
+			dataPtr->cameraProjectionMatrixPerEye = myShaderVals.cameraProjectionMatrixPerEye;
+			dataPtr->cameraProjectionMatrixPerEyeInv = myShaderVals.cameraProjectionMatrixPerEyeInv;
 			dataPtr->offsets = myShaderVals.offsets;
 			devcon->Unmap(g_pConstantBuffer11, 0);
 			devcon->VSSetConstantBuffers(0, 1, &g_pConstantBuffer11);

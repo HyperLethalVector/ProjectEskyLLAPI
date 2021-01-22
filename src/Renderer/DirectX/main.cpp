@@ -143,22 +143,22 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPlugin
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowId, void* deltaLeft, void* deltaRight) {
 	if (windowIds.count(windowId)) {
 		windowGraphics[windowId].SetAffine((float*)deltaLeft, (float*)deltaRight);
-	}       
+	}         
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowId,
 float leftUvToRectX[],// = { 0.0 };
 float leftUvToRectY[],// = { 0.0 }; 
 float rightUvToRectX[],// = { 0.0 };   
 float rightUvToRectY[],// = { 0.0 };
-float CameraMatrixLeft[],// = { 0.0 };
-float CameraMatrixRight[],// = { 0.0 };
-float InvCameraMatrixLeft[],// = { 0.0 };
-float InvCameraMatrixRight[],// = { 0.0 };
+float PolynomialCameraProjectionMatrixLeft[],// = { 0.0 };
+float PolynomialCameraProjectionMatrixRight[],// = { 0.0 };
+float CameraProjectionMatrixPerEye[],// = { 0.0 };
+float CameraProjectionMatrixPerEyeInv[],// = { 0.0 };
 float leftOffset[],// = { 0.0 };
 float rightOffset[],// = { 0.0 };  
 float eyeBorders[]) {
 	if (windowIds.count(windowId)) {
-		windowGraphics[windowId].SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, CameraMatrixLeft, CameraMatrixRight,InvCameraMatrixLeft,InvCameraMatrixRight, leftOffset, rightOffset, eyeBorders);
+		windowGraphics[windowId].SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, PolynomialCameraProjectionMatrixLeft, PolynomialCameraProjectionMatrixRight,CameraProjectionMatrixPerEye, CameraProjectionMatrixPerEyeInv,leftOffset, rightOffset, eyeBorders);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdRight(int windowId, void* texturePtr) {
