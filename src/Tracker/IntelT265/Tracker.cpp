@@ -292,7 +292,7 @@ public:
                         PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                         PoseFinal[3][0] = predicted_pose.translation.y; 
                         PoseFinal[3][1] = -predicted_pose.translation.x; 
-                        PoseFinal[3][2] = predicted_pose.translation.z;                         
+                        PoseFinal[3][2] = predicted_pose.translation.z;                          
                         try {
                             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform; 
                             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;                                                                         

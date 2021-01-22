@@ -9,12 +9,12 @@
 #include <array>       
 #include <cmath>    
 #include <iostream> 
-#include <vector>   
+#include <vector>    
 #include <iomanip>    
 #include <chrono>    
 #include <thread> 
 #include <mutex> 
-#include <math.h>   
+#include <math.h>    
 #include <float.h>  
 #include "Tracker.cpp"   
 #ifdef __linux__
@@ -23,21 +23,21 @@
 #define STB_IMAGE_IMPLEMENTATION
 #endif 
 //-------------------------------------------------------------------
-  
+    
 #ifdef __linux__ 
-#define DLL_EXPORT 
+#define DLL_EXPORT   
 #else  
 #define DLL_EXPORT __declspec(dllexport) 
 #endif  
 #ifdef __cplusplus     
 extern "C" {   
-#endif      
+#endif        
     map<int,TrackerObject*> to;
     map<int,std::thread*> t3;     
 #ifdef __linux  
 #else    
     ID3D11Device* m_Device;  
-#endif  
+#endif    
     DLL_EXPORT void StopTrackers(int Id) { 
         to[Id]->ExitThreadLoop = true;
         to[Id]->StopTracking(); 
