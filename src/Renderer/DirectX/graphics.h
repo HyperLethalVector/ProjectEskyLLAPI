@@ -102,6 +102,7 @@ public:
 	bool RenderLock = false;
 	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
+	bool lockRenderingFrame = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
 	void RenderFrame();
@@ -116,7 +117,7 @@ public:
 	}
 	void SetBrightness(float brightness) {
 		myShaderVals2.toggleConfigs.y = brightness;
-	}
+	} 
 	void StartRenderThread() {
 		if (!threadStarted) {
 			threadStarted = true;
@@ -129,15 +130,17 @@ public:
 	} 
 
 	void SetAffine(float* inputDeltaLeft, float* inputDeltaRight) {
-		RenderLock = true;
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
-				myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
-				myShaderVals2.deltaPoseRight.m[x][y] = inputDeltaRight[y * 4 + x];
+		if (!RenderLock) {
+			RenderLock = true;
+			for (int x = 0; x < 4; x++) {
+				for (int y = 0; y < 4; y++) {
+					myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
+					myShaderVals2.deltaPoseRight.m[x][y] = inputDeltaRight[y * 4 + x];
+				}
 			}
+			updateDeltaPoseOnGraphicsThread = true;
+			RenderLock = false;
 		}
-		updateDeltaPoseOnGraphicsThread = true;
-		RenderLock = false;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };
