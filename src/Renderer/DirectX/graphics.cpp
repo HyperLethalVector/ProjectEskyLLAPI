@@ -82,8 +82,12 @@ void Graphics::InitD3D(HWND hWnd) {
 	doesExit = false;
 	graphicsRender = true;
 }
-
+float* DeltaPoseIdentity = new float[] {1, 0, 0, 0,
+0, 1, 0, 0,
+0, 0, 1, 0,
+0, 0, 0, 1};
 void Graphics::RenderFrame() {
+	SetAffine(DeltaPoseIdentity, DeltaPoseIdentity);
 	if (pExternalTextureLeft) {
 		unityDevCon->CopyResource(pProxyTextureLeft, pExternalTextureLeft);
 	}
