@@ -11,9 +11,9 @@
 HINSTANCE hInstance;
 static std::map<int, std::thread*> myThreads;// = nullptr;
 static std::map<int, HWND> windowIds;
-static std::map<HWND, int> reverseLookup;//this is here just so we can kill the prior processes
+static std::map<HWND, int> reverseLookup;//this is here just so we can kill the prior processes 
 static std::map<int, Graphics> windowGraphics;
-
+ 
 void DebugMessage(const char * message);
  
 // this is the main message handler for the program
@@ -180,7 +180,7 @@ static void SetAttributes(HWND hwnd, int colorKey, byte alpha, int flags) {
 			SetLayeredWindowAttributes(hwnd, coloref, alpha, LWA_COLORKEY | LWA_ALPHA);
 		}
 	} 
-}
+}  
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetColorFormat(int colorFormat) {
 	if (colorFormat == 0) {
 		Graphics::colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;

@@ -118,8 +118,9 @@ public:
     bool ExitThreadLoop = false;
     bool shouldRestart = false;
     bool shouldLoadMap = false;
-    bool shouldGrabMap = false;
+    bool shouldGrabMap = false; 
     bool shouldUploadData = false;
+    bool hasReceivedTexture = false;
     rs2::context myCon;
     rs2::device myDev;
     void ConvMatrixToFloatArray(glm::mat4 src, float* target) { 
@@ -212,24 +213,18 @@ public:
 #endif
         }
         while (!ExitThreadLoop) {
-            try {
+            try { 
                 bool receivedPoseFirst = false;                
                 hasReceivedCameraStream = false;
                 rs2::pipeline pipe;
                 rs2::config cfg;
-                rs2::pipeline_profile myProf;
+                rs2::pipeline_profile myProf; 
                 std::vector<std::string> serials;
                 uint32_t dev_q;
-                rs2::context ctx;
-                dev_q = ctx.query_devices().size();
+                rs2::context ctx; 
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,1);
                 cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,2);
-                for (rs2::device &&dev : ctx.query_devices())
-                {
-                    serials.push_back(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
-                }
-                cfg.enable_device(serials[TrackerID]);
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
@@ -292,7 +287,7 @@ public:
                         PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                         PoseFinal[3][0] = predicted_pose.translation.y; 
                         PoseFinal[3][1] = -predicted_pose.translation.x; 
-                        PoseFinal[3][2] = predicted_pose.translation.z;                          
+                        PoseFinal[3][2] = predicted_pose.translation.z;  
                         try {
                             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform; 
                             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;                                                                         
@@ -303,12 +298,13 @@ public:
                             }
                         }
                         catch (std::exception e) {
-                            Debug::Log(e.what(), Color::Red);
-                        }
+                            Debug::Log(e.what(), Color::Red); 
+                        } 
                         receivedPoseFirst = true;
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         if (receivedPoseFirst) {
+                                                        LockImage = true;
                             rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);
                             const int w = video_frame.get_width();
                             const int h = video_frame.get_height();
@@ -322,7 +318,7 @@ public:
                                 cy = intrinsics.ppy;
                                 d1 = intrinsics.coeffs[0];
                                 d2 = intrinsics.coeffs[1];
-                                d3 = intrinsics.coeffs[2];
+                                d3 = intrinsics.coeffs[2];  
                                 d4 = intrinsics.coeffs[3];                                
                                 intrinsicsL = (cv::Mat_<double>(3, 3) <<
                                     fx, 0, cx,
@@ -346,14 +342,12 @@ public:
                                 fisheye_mat_color_cpu = fisheye_mat_color.clone();
                             }
                             try {
-                                if (!LockImage) {
-                                    cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
-                                    fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
-                                    for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
-                                        if ((*it) != nullptr) {
-                                            if ((*it)->callbackWithID != nullptr) {
-                                                (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
-                                            }
+                                cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
+                                fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
+                                for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
+                                    if ((*it) != nullptr) {
+                                        if ((*it)->callbackWithID != nullptr) {
+                                           (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
                                         }
                                     }
                                 }
@@ -373,10 +367,10 @@ public:
                                 }
                                 hasReceivedCameraStream = true;
                             }
-
-                            
+                            LockImage = false;
                         }
-                    }
+
+                    } 
                     });                
                 shouldRestart = false;
                 while (!shouldRestart && !ExitThreadLoop) {
@@ -544,21 +538,24 @@ public:
         }
         file.write((char*)bytes.data(), bytes.size());
     }
-    void UpdatecameraTextureGPU() {
+    void UpdatecameraTextureGPU() { 
 #ifdef __linux__ //OGL 
 
-#else
-        if (m_Device != nullptr) {
-            if (hasReceivedCameraStream) {
-                ID3D11DeviceContext* ctx = NULL;
-                m_Device->GetImmediateContext(&ctx);
-                LockImage = true;
-                if (d3dtex != nullptr) {
-                    ctx->UpdateSubresource(d3dtex, 0, 0, fisheye_mat_color_undistort.data, fisheye_mat_color_undistort.step[0], (UINT)fisheye_mat_color_undistort.total());
+#else 
+
+        if (!LockImage) {
+            if (m_Device != nullptr) {
+                if (hasReceivedTexture) {
+                    ID3D11DeviceContext* ctx = NULL;
+                    m_Device->GetImmediateContext(&ctx);
+                    if (ctx != nullptr) {
+                        if (d3dtex != nullptr) {
+                            ctx->UpdateSubresource(d3dtex, 0, 0, fisheye_mat_color_undistort.data, fisheye_mat_color_undistort.step[0], (UINT)fisheye_mat_color_undistort.total());
+                        }
+                        ctx->Release();
+                    }
                 }
-                LockImage = false;
-                ctx->Release();
-            }
+            } 
         }
 #endif
     }
@@ -578,6 +575,7 @@ public:
 
 #else //DX
         d3dtex = (ID3D11Texture2D*)textureHandle;
+        hasReceivedTexture = true;
 #endif
     }
     void GrabMap() {
@@ -597,7 +595,7 @@ public:
             {leftEyeTransform[0],leftEyeTransform[1],leftEyeTransform[2],leftEyeTransform[3]},
             {leftEyeTransform[4],leftEyeTransform[5],leftEyeTransform[6],leftEyeTransform[7]},
             {leftEyeTransform[8],leftEyeTransform[9],leftEyeTransform[10],leftEyeTransform[11]},
-            {leftEyeTransform[12],leftEyeTransform[13],leftEyeTransform[14],leftEyeTransform[15]},
+            {leftEyeTransform[12],leftEyeTransform[13],leftEyeTransform[14],leftEyeTransform[15]}, 
         };
         this->rightEyeTransform = {
             {rightEyeTransform[0],rightEyeTransform[1],rightEyeTransform[2],rightEyeTransform[3]},
@@ -607,6 +605,7 @@ public:
         };
         this->rightEyeTransform = transpose(this->rightEyeTransform); 
         this->leftEyeTransform = transpose(this->leftEyeTransform);
+        Debug::Log("Finished setting transforms", Color::Green); 
     }
 
 };

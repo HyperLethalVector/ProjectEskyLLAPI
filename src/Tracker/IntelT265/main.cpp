@@ -26,12 +26,12 @@
     
 #ifdef __linux__ 
 #define DLL_EXPORT   
-#else  
+#else   
 #define DLL_EXPORT __declspec(dllexport) 
 #endif  
 #ifdef __cplusplus     
 extern "C" {   
-#endif        
+#endif         
     map<int,TrackerObject*> to;
     map<int,std::thread*> t3;     
 #ifdef __linux  
@@ -39,20 +39,25 @@ extern "C" {
     ID3D11Device* m_Device;  
 #endif    
     DLL_EXPORT void StopTrackers(int Id) { 
+        if (to.find(Id) == to.end()) {return;}
         to[Id]->ExitThreadLoop = true;
-        to[Id]->StopTracking(); 
+        to[Id]->StopTracking();  
+       
     }           
     void TrackerBackgroundThread(int i) {     
-        to[i]->DoFunctionTracking();    
+        if (to.find(i) == to.end()) { return; }
+        to[i]->DoFunctionTracking();     
         delete to[i];   
         to[i] = nullptr;   
     }
     DLL_EXPORT void StartTrackerThread(int Id, bool useLocalization) {//ignored for now....
+        if (to.find(Id) == to.end()) { return; }
         Debug::Log("Started Tracking Thread");  
         to[Id]->ExitThreadLoop = false;   
         t3[Id] = new std::thread(TrackerBackgroundThread,Id);
     } 
     DLL_EXPORT float* GetLatestPose(int Id) {      
+        if (to.find(Id) == to.end()) { return nullptr; } 
        return to[Id]->latestPose;  
     }   
     DLL_EXPORT void InitializeTrackerObject(int Id) {
@@ -60,97 +65,115 @@ extern "C" {
         to[Id]->TrackerID = Id; 
     }
     DLL_EXPORT void ObtainMap(int Id) { 
+        if (to.find(Id) == to.end()) { return; } 
         if (to.count(Id)) {
             to[Id]->GrabMap();
         }
     } 
     DLL_EXPORT void FlagMapImport(int Id) {
+        if (to.find(Id) == to.end()) { return; }
        to[Id]->FlagMapImport();
     }  
     DLL_EXPORT void ObtainOriginInLocalizedMap(int Id) {
+        if (to.find(Id) == to.end()) { return; }
             to[Id]->GrabPoseInOrigin();
     }
-    DLL_EXPORT void HookDeviceToIntel(int Id) {
+    DLL_EXPORT void HookDeviceToIntel(int Id) { 
 #ifdef __linux
 #else
+        if (to.find(Id) == to.end()) { return; }
             to[Id]->m_Device = m_Device;
 #endif
     }
-    static IUnityInterfaces* s_UnityInterfaces = NULL; 
+    static IUnityInterfaces* s_UnityInterfaces = NULL;  
     static IUnityGraphics* s_Graphics = NULL;
      
     static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType); 
     extern "C" void	UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces * unityInterfaces)
     {
         s_UnityInterfaces = unityInterfaces;  
-        s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
-        s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
-       // OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize);   
-    } 
-      
+        if (s_UnityInterfaces != nullptr) {
+            s_Graphics = s_UnityInterfaces->Get<IUnityGraphics>();
+            if (s_Graphics != nullptr) {
+                s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
+                OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize); 
+            }  
+        }
+    }   
+       
     extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
     { 
-        s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent); 
+        if (s_Graphics != nullptr) {
+            s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
+        }
     }    
     DLL_EXPORT void SetTextureInitializedCallback(int iD, FuncTextureInitializedCallback myCallback) {
         to[iD]->textureInitializedCallback = myCallback;    
     }  
-    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)
+    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) 
     {
-        // Create graphics API implementation upon initialization
+        // Create graphics API implementation upon initialization 
         if (eventType == kUnityGfxDeviceEventInitialize)  
         {       
 #ifdef __linux     
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-            m_Device = d3d->GetDevice();    
+            if (d3d != nullptr) {
+                m_Device = d3d->GetDevice();
+            }
 #endif         
         }            
         else if (eventType == kUnityGfxDeviceEventShutdown) {  
         }               
     }              
     DLL_EXPORT void RegisterMatrixDeltaConvCallback(int iD, FuncDeltaMatrixConvertCallback callback) {
+        if (to.find(iD) == to.end()) { return; }
        to[iD]->callbackMatrixConvert = callback;
-    } 
-    DLL_EXPORT void RegisterQuaternionConversionCallback(int iD, QuaternionCallback qc) {  
-        to[iD]->quaternionCallback = qc;    
-    } 
+    }  
     DLL_EXPORT void RegisterDeltaPoseUpdate(int iD, FuncDeltaPoseUpdateCallback fdpuc) {
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackDeltaPoseUpdate = fdpuc; 
     }      
-    DLL_EXPORT void PostRenderReset(int iD) {     
+    DLL_EXPORT void PostRenderReset(int iD) {  
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->ResetInitialPose();  
     } 
-    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) {
+    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) { 
         callbackInstance = cb;
     }
     DLL_EXPORT void RegisterLocalizationCallback(int iD, LocalizationCallback cb) {
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackLocalization = cb;
-    }
+    } 
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) {
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackObjectPoseReceived = cb;
     } 
     DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackBinaryMap = cb; 
-    }        
+    }          
     DLL_EXPORT void SetSerialComPort(int iD, int port) { 
-        to[iD]->usesIntegrator = true; 
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->usesIntegrator = true;  
         to[iD]->SetComPortString(port); 
-    }       
+    }        
     DLL_EXPORT void SetRenderTexturePointer(int iD, void* textureHandle) {
-        to[iD]->SetTexturePointer(textureHandle);
-    } 
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->SetTexturePointer(textureHandle);  
+    }   
     DLL_EXPORT void SubscribeCallbackImageWithID(int iD, int instanceID, FuncReceiveCameraImageCallbackWithID callback) {
         to[iD]->SubscribeReceiver(callback,instanceID);
     }           
     DLL_EXPORT void SetLeftRightEyeTransform(int iD, float* leftEyeTransform, float* rightEyeTransform) {
+        if (to.find(iD) == to.end()) { return; }
         to[iD]->SetLeftRightEyeTransforms(leftEyeTransform, rightEyeTransform);
     }
-}        
- 
+}         
+  
 static void UNITY_INTERFACE_API OnRenderEvent(int iD)
 { 
-   to[iD]->UpdatecameraTextureGPU(); 
+   to[iD]->UpdatecameraTextureGPU();  
 }
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc(int iD)
 { 
