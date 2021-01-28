@@ -3,15 +3,15 @@
 #include <sstream>
 #include <fstream>
 #include <thread>  
-#include <iostream>  
+#include <iostream>    
 #define STB_IMAGE_IMPLEMENTATION 
 #include "stb_image.h"  
 #include <array>       
-#include <cmath>    
+#include <cmath>     
 #include <iostream> 
 #include <vector>    
-#include <iomanip>    
-#include <chrono>    
+#include <iomanip>     
+#include <chrono>     
 #include <thread> 
 #include <mutex> 
 #include <math.h>    
@@ -114,7 +114,7 @@ extern "C" {
     {
         // Create graphics API implementation upon initialization 
         if (eventType == kUnityGfxDeviceEventInitialize)  
-        {       
+        {        
 #ifdef __linux     
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
@@ -122,33 +122,45 @@ extern "C" {
                 m_Device = d3d->GetDevice();
             }
 #endif         
-        }            
+        }             
         else if (eventType == kUnityGfxDeviceEventShutdown) {  
-        }               
-    }              
+        }                
+    }               
+    DLL_EXPORT void UpdateFilterTranslationParams(int iD, double _freq, double _mincutoff, double _beta, double _dcutoff) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateFilterTranslationParams(_freq, _mincutoff, _beta, _dcutoff); 
+    }
+    DLL_EXPORT void UpdateFilterRotationParams(int iD, double _freq, double _mincutoff, double _beta, double _dcutoff) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateFilterRotationParams(_freq, _mincutoff, _beta, _dcutoff);
+    }  
+    DLL_EXPORT void SetFilterEnabled(int iD, bool value) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->SetFilterEnabled(value);  
+    }
     DLL_EXPORT void RegisterMatrixDeltaConvCallback(int iD, FuncDeltaMatrixConvertCallback callback) {
         if (to.find(iD) == to.end()) { return; }
-       to[iD]->callbackMatrixConvert = callback;
+       to[iD]->callbackMatrixConvert = callback; 
     }  
     DLL_EXPORT void RegisterDeltaPoseUpdate(int iD, FuncDeltaPoseUpdateCallback fdpuc) {
-        if (to.find(iD) == to.end()) { return; }
-        to[iD]->callbackDeltaPoseUpdate = fdpuc; 
+        if (to.find(iD) == to.end()) { return; } 
+        to[iD]->callbackDeltaPoseUpdate = fdpuc;  
     }      
     DLL_EXPORT void PostRenderReset(int iD) {  
-        if (to.find(iD) == to.end()) { return; }
-        to[iD]->ResetInitialPose();  
+        if (to.find(iD) == to.end()) { return; } 
+        to[iD]->ResetInitialPose();   
     } 
     DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) { 
         callbackInstance = cb;
-    }
+    } 
     DLL_EXPORT void RegisterLocalizationCallback(int iD, LocalizationCallback cb) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackLocalization = cb;
     } 
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->callbackObjectPoseReceived = cb;
-    } 
+        to[iD]->callbackObjectPoseReceived = cb; 
+    }  
     DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackBinaryMap = cb; 

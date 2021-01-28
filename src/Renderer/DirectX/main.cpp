@@ -1,7 +1,7 @@
  
 #include <windows.h>
 #include <thread>
-#include "graphics.h"    
+#include "graphics.h"     
 
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"  
@@ -13,7 +13,7 @@ static std::map<int, std::thread*> myThreads;// = nullptr;
 static std::map<int, HWND> windowIds;
 static std::map<HWND, int> reverseLookup;//this is here just so we can kill the prior processes 
 static std::map<int, Graphics> windowGraphics;
- 
+  
 void DebugMessage(const char * message);
  
 // this is the main message handler for the program
