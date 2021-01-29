@@ -146,7 +146,7 @@ extern "C" {
         if (to.find(iD) == to.end()) { return; } 
         to[iD]->callbackDeltaPoseUpdate = fdpuc;  
     }      
-    DLL_EXPORT void PostRenderReset(int iD) {  
+    DLL_EXPORT void PostRenderReset(int iD) {   
         if (to.find(iD) == to.end()) { return; } 
         to[iD]->ResetInitialPose();   
     } 
