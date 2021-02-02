@@ -121,6 +121,7 @@ public:
     bool shouldGrabMap = false; 
     bool shouldUploadData = false;
     bool hasReceivedTexture = false;
+    bool initializeWithPassthrough = false;
     rs2::context myCon;
     rs2::device myDev;
     bool filterEnabled = true;
@@ -248,8 +249,10 @@ public:
                 poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff); 
                 poseFilter.SetFilterEnabled(filterEnabled);
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
-                cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,1);
-                cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,2);
+                if (initializeWithPassthrough) {
+                    cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 1);
+                    cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 2);
+                }
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
@@ -294,7 +297,7 @@ public:
                         double pose_time_ms = pose_frame.get_timestamp();
                         float deltaTimeSinceLastPose = static_cast<float>(max(0.0, (now_ms - lastPoseTime_ms) / 1000.0));
                         float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
-                        rs2_pose predicted_pose = predict_pose(pose_data, dt_s);                       
+                        rs2_pose predicted_pose = predict_pose(pose_data, dt_s);                        
             //            latestPose[0] = predicted_pose.translation.x;
           //              latestPose[1] = predicted_pose.translation.y;
         //                latestPose[2] = -predicted_pose.translation.z;

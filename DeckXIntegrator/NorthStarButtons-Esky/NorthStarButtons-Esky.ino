@@ -155,7 +155,7 @@ void timerActions() {
         if ((0b00100000 & timerMask) && (0b00010000 & timerMask)) { //Are both buttons pressed? Separate comparisons because 0b00110000 & timerMask would evaluate to true for both OR one.
           long initiatedTime = currentTime - RESET_DELAY;                  //Let's count the dual press from when the first button press was detected
           if ((initiatedTime > buttonTimer[4]) && (initiatedTime > buttonTimer[5])) {
-                        digitalWrite(PORT_1, LOW);
+//                        digitalWrite(PORT_1, LOW);
                         digitalWrite(PORT_2, LOW);
                         portResetTimeout = millis() + 500;
                         portResetting = true;
@@ -168,7 +168,7 @@ void timerActions() {
     }
   }
   if (portResetting && millis() > portResetTimeout) {
-    digitalWrite(PORT_1, HIGH);
+//    digitalWrite(PORT_1, HIGH);
     digitalWrite(PORT_2, HIGH);
     portResetting = false;
     Serial.println("Port Reset complete");

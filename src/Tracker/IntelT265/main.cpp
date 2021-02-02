@@ -146,6 +146,10 @@ extern "C" {
         if (to.find(iD) == to.end()) { return; } 
         to[iD]->callbackDeltaPoseUpdate = fdpuc;  
     }      
+    DLL_EXPORT void EnablePassthrough(int iD, bool enabled) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->initializeWithPassthrough = enabled;
+    }
     DLL_EXPORT void PostRenderReset(int iD) {   
         if (to.find(iD) == to.end()) { return; } 
         to[iD]->ResetInitialPose();   
