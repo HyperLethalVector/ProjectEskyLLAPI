@@ -1,7 +1,7 @@
  
 #include <windows.h>
 #include <thread>
-#include "graphics.h"    
+#include "graphics.h"     
 
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"  
@@ -13,7 +13,7 @@ static std::map<int, std::thread*> myThreads;// = nullptr;
 static std::map<int, HWND> windowIds;
 static std::map<HWND, int> reverseLookup;//this is here just so we can kill the prior processes 
 static std::map<int, Graphics> windowGraphics;
- 
+  
 void DebugMessage(const char * message);
  
 // this is the main message handler for the program
@@ -67,16 +67,16 @@ HWND CreateNewWindow(int windowId, LPCWSTR titlestr, int width, int height, bool
 	windowClass.lpfnWndProc = (WNDPROC) WindowProc;  
 	windowClass.cbClsExtra = 0;   
 	windowClass.cbWndExtra = 0;  
-	windowClass.hInstance = hInstance;  
+	windowClass.hInstance = hInstance;   
 	windowClass.hIcon = LoadIcon(NULL, IDI_WINLOGO);  
 	windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);  
-	windowClass.hbrBackground = NULL;  
+	windowClass.hbrBackground = (HBRUSH)COLOR_BACKGROUND;
 	windowClass.lpszMenuName = NULL;  
 	windowClass.lpszClassName = title;
 	
 	Graphics graphics;
 	graphics.SetSize(width, height);
-	 
+	  
 	UnregisterClass((LPCSTR)title, hInstance);
 
 	if (!RegisterClassEx(&windowClass)) {  
@@ -89,8 +89,9 @@ HWND CreateNewWindow(int windowId, LPCWSTR titlestr, int width, int height, bool
 	if(noStyle){
 		SetWindowLong(hWnd, GWL_STYLE, 0);
 	} 
-
-	ShowWindow(hWnd, SW_SHOW);   
+	HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
+	SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)brush); 
+	ShowWindow(hWnd, SW_SHOW);    
 	UpdateWindow(hWnd);
 	windowGraphics[windowId] = graphics;
 

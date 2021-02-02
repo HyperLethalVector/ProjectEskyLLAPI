@@ -25,7 +25,6 @@
 #include "IUnityGraphicsD3D11.h"
 #endif
 #include "common_header.h"
-
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
 #include <opencv2/highgui/highgui.hpp>
@@ -37,6 +36,7 @@
 #else
     #include "Serial.h"
 #endif
+#include <DollaryDooFilter.h>
 #define PI 3.141592653
 typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, 
                                                     int lengthofarray, int width, int height, int pixelCount);
@@ -56,6 +56,7 @@ public:
 };
 class TrackerObject {
 public:
+    OneDollaryDooFilterPose poseFilter;
     std::vector<SensorInfoCallback*> subscribedImageReceivers;
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
@@ -78,7 +79,6 @@ public:
     float* deltaPoseLeftArray = new float[16]{ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
     float* deltaPoseRightArray = new float[16]{ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
     float fx, fy, cx, cy, d1, d2, d3, d4, d5 = 0;
-
     glm::mat4 leftEyeTransform;
     glm::mat4 rightEyeTransform;   
     glm::mat4 PoseInitial;
@@ -117,12 +117,16 @@ public:
     bool isFirst = true;
     bool ExitThreadLoop = false;
     bool shouldRestart = false;
-    bool shouldLoadMap = false;
+    bool shouldLoadMap = false; 
     bool shouldGrabMap = false; 
     bool shouldUploadData = false;
     bool hasReceivedTexture = false;
+    bool initializeWithPassthrough = false;
     rs2::context myCon;
     rs2::device myDev;
+    bool filterEnabled = true;
+    float rfreq, rmincutoff, rbeta, rdcutoff = 0;
+    float tfreq, tmincutoff, tbeta, tdcutoff = 0;
     void ConvMatrixToFloatArray(glm::mat4 src, float* target) { 
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 4; y++){
@@ -132,6 +136,24 @@ public:
     }
     void FlagMapImport() {
        shouldLoadMap = true;
+    }
+    void UpdateFilterTranslationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
+        tfreq = _freq; 
+        tmincutoff = _mincutoff;
+        tbeta = _beta;
+        tdcutoff = _dcutoff;
+        poseFilter.UpdateTranslationParams(_freq, _mincutoff, _beta, _dcutoff);
+    }
+    void SetFilterEnabled(bool value) {
+        filterEnabled = value;
+        poseFilter.SetFilterEnabled(value); 
+    }
+    void UpdateFilterRotationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
+        rfreq = _freq;
+        rmincutoff = _mincutoff;
+        rbeta = _beta;
+        rdcutoff = _dcutoff;
+        poseFilter.UpdateRotationParams(_freq, _mincutoff, _beta, _dcutoff);
     }
     void SetComPortString(int port) {
         switch (port) {
@@ -222,9 +244,15 @@ public:
                 std::vector<std::string> serials;
                 uint32_t dev_q;
                 rs2::context ctx; 
+                poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
+                poseFilter.UpdateTranslationParams(tfreq, tmincutoff, tbeta, tdcutoff);
+                poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff); 
+                poseFilter.SetFilterEnabled(filterEnabled);
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
-                cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,1);
-                cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE,2);
+                if (initializeWithPassthrough) {
+                    cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 1);
+                    cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 2);
+                }
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
@@ -270,24 +298,26 @@ public:
                         float deltaTimeSinceLastPose = static_cast<float>(max(0.0, (now_ms - lastPoseTime_ms) / 1000.0));
                         float dt_s = static_cast<float>(max(0.0, (now_ms - pose_time_ms) / 1000.0));
                         rs2_pose predicted_pose = predict_pose(pose_data, dt_s);                        
-                        latestPose[0] = predicted_pose.translation.x;
-                        latestPose[1] = predicted_pose.translation.y;
-                        latestPose[2] = -predicted_pose.translation.z; 
-                        latestPose[3] = -predicted_pose.rotation.x;
-                        latestPose[4] = -predicted_pose.rotation.y;
-                        latestPose[5] = predicted_pose.rotation.z;
-                        latestPose[6] = predicted_pose.rotation.w;
+            //            latestPose[0] = predicted_pose.translation.x;
+          //              latestPose[1] = predicted_pose.translation.y;
+        //                latestPose[2] = -predicted_pose.translation.z;
+      //                  latestPose[3] = -predicted_pose.rotation.x; 
+    //                    latestPose[4] = -predicted_pose.rotation.y;
+  //                      latestPose[5] = predicted_pose.rotation.z; 
+//                        latestPose[6] = predicted_pose.rotation.w;
+                        poseFilter.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
+                        poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]); 
                         if (resetInitialPose) {
                             resetInitialPose = false;
                             PoseInitial = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                             PoseInitial[3][0] = predicted_pose.translation.y;
                             PoseInitial[3][1] = -predicted_pose.translation.x;
                             PoseInitial[3][2] = predicted_pose.translation.z;
-                        }                     
+                        }
                         PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
-                        PoseFinal[3][0] = predicted_pose.translation.y; 
-                        PoseFinal[3][1] = -predicted_pose.translation.x; 
-                        PoseFinal[3][2] = predicted_pose.translation.z;  
+                        PoseFinal[3][0] = predicted_pose.translation.y;
+                        PoseFinal[3][1] = -predicted_pose.translation.x;
+                        PoseFinal[3][2] = predicted_pose.translation.z;
                         try {
                             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform; 
                             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;                                                                         

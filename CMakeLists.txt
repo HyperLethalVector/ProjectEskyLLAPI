@@ -84,10 +84,10 @@ include_directories(./include/)
 #T265
 if(WIN32)
 add_library(libProjectEskyLLAPIIntel SHARED 
-./src/Filters/DollaryDooFilter.h
 ./src/Tracker/IntelT265/main.cpp  
 ./src/Tracker/IntelT265/Tracker.cpp 
-./src/Tracker/IntelT265/Serial.cpp 
+./src/Tracker/IntelT265/Serial.cpp  
+./include/DollaryDooFilter.h
 ./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
