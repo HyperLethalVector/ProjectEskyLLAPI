@@ -61,9 +61,18 @@ private:
 	ID3D11InputLayout *pLayout;
 	ID3D11ShaderResourceView *pShaderResourceViewLeft;
 	ID3D11ShaderResourceView *pShaderResourceViewRight;
+	ID3D11ShaderResourceView* pShaderResourceUndistortionViewLeft;
+	ID3D11ShaderResourceView* pShaderResourceUndistortionViewRight;
+
+
 	ID3D11SamplerState *pSamplerState;
 	ID3D11Texture2D *pTextureLeft;
 	ID3D11Texture2D *pTextureRight;
+	ID3D11Texture2D* pUndistortionTextureLeft;
+	ID3D11Texture2D* pUndistortionTextureRight;
+
+
+
 	ID3D11Texture2D *pProxyTextureLeft;
 	ID3D11Texture2D *pProxyTextureRight;
 	ID3D11Texture2D *pExternalTextureLeft;
@@ -75,6 +84,14 @@ private:
 	int bufferWidth = 0;
 	int bufferHeight = 0;
 	bool wmCloseFromUnity = false;
+	bool updateUndistortionTexture = false;
+	int undistortionTexWidth;
+	int undistortionTexHeight;
+	ID3D11Texture2D* externalUndistortionTextureLeft;
+	ID3D11Texture2D* externalUndistortionTextureRight;
+	ID3D11Texture2D* proxyUndistortionTextureLeft;
+	ID3D11Texture2D* proxyUndistortionTextureRight;
+
 	//temprorarily stored buffers
 	float* bleftUvToRectX;// = { 0.0 };
 	float* bleftUvToRectY;// = { 0.0 };
@@ -103,12 +120,15 @@ public:
 	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
 	bool lockRenderingFrame = false;
+	bool renderToFile = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
 	void RenderFrame();
 	void GraphicsBackgroundThreadRenderFrame();
 	void SetTexturePtrLeft(void* texturePtr);
 	void SetTexturePtrRight(void* texturePtr);
+	void SetUndistortionTexturePtrLeft(void* texturePtr); 
+	void SetUndistortionTexturePtrRight(void* texturePtr);
 	void SetSize(int w, int h) { width = w; height = h; }
 	void SetCloseFromUnity(bool closeFromUnity) { wmCloseFromUnity = closeFromUnity;}
 	bool GetCloseFromUnity() { return wmCloseFromUnity; }
@@ -211,6 +231,9 @@ private:
 	void InitPipeline(); // loads and prepares the shaders
 	void CreateProxyTextureLeft();
 	void CreateProxyTextureRight();
+	void CreateProxyUndistortionTextureLeft();
+	void CreateProxyUndistortionTextureRight();
+
 	void UseExternalTexture();
 	void InitTextureSampler();
 	void InitGraphics();// creates the shape to render

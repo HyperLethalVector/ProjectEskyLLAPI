@@ -24,8 +24,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     {
 		case WM_SIZE: // If our window is resizing   
 			windowGraphics[reverseLookup[hWnd]].SetSize(LOWORD(lParam), LOWORD(lParam));
-			break; 
-			 
+			break; 			 
 		case WM_CLOSE:		
 			if(windowGraphics[reverseLookup[hWnd]].GetCloseFromUnity()){
 				windowGraphics[reverseLookup[hWnd]].SetCloseFromUnity(false);
@@ -216,4 +215,9 @@ static void UNITY_INTERFACE_API OnRenderEvent(int eventID) {
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc(){
 	return OnRenderEvent;
 }
-
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetUndistortionTextureLeftPtr(int windowID, void* pointer) {
+	windowGraphics[windowID].SetUndistortionTexturePtrLeft(pointer);
+}
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetUndistortionTextureRightPtr(int windowID, void* pointer) {
+	windowGraphics[windowID].SetUndistortionTexturePtrLeft(pointer);
+}

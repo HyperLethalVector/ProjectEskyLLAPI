@@ -101,6 +101,15 @@ void Graphics::RenderFrame() {
 	if (pExternalTextureRight) {
 		unityDevCon->CopyResource(pProxyTextureRight, pExternalTextureRight);
 	}
+	if (updateUndistortionTexture) {
+		updateUndistortionTexture = false;
+		if (externalUndistortionTextureLeft) {
+			unityDevCon->CopyResource(proxyUndistortionTextureLeft, externalUndistortionTextureLeft);
+		} 
+		if (externalUndistortionTextureRight) {
+			unityDevCon->CopyResource(proxyUndistortionTextureRight, externalUndistortionTextureRight);
+		}
+	}
 	updateDeltaPoseOnGraphicsThread = true;
 	RenderLock = false;
 	lockRenderingFrame = false;
@@ -149,6 +158,14 @@ void Graphics::SetTexturePtrLeft(void* texturePtr) {
 }
 void Graphics::SetTexturePtrRight(void* texturePtr) {
 	pExternalTextureRight = (ID3D11Texture2D*)texturePtr;
+}
+void Graphics::SetUndistortionTexturePtrLeft(void* texturePtr) {
+	externalUndistortionTextureLeft = (ID3D11Texture2D*)texturePtr;
+	updateUndistortionTexture = true;
+}
+void Graphics::SetUndistortionTexturePtrRight(void* texturePtr) {
+	externalUndistortionTextureRight = (ID3D11Texture2D*)texturePtr;
+	updateUndistortionTexture = true;
 }
 //private methods
 
@@ -265,6 +282,38 @@ void Graphics::CreateProxyTextureRight() {
 	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 	desc.CPUAccessFlags = 0;
 	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+	unityDev->CreateTexture2D(&desc, NULL, &proxyUndistortionTextureLeft);
+}
+void Graphics::CreateProxyUndistortionTextureRight() {
+	D3D11_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
+	desc.Width = unityTextureWidth;
+	desc.Height = unityTextureHeight;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = colorFormat;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+	unityDev->CreateTexture2D(&desc, NULL, &proxyUndistortionTextureRight);
+}
+void Graphics::CreateProxyUndistortionTextureLeft() {
+	D3D11_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
+	desc.Width = unityTextureWidth;
+	desc.Height = unityTextureHeight;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = colorFormat;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
 	unityDev->CreateTexture2D(&desc, NULL, &pProxyTextureRight);
 }
 void Graphics::UseExternalTexture()
@@ -295,6 +344,32 @@ void Graphics::UseExternalTexture()
 		}
 		dev->CreateShaderResourceView(pTextureRight, NULL, &pShaderResourceViewRight);
 	}
+	if (externalUndistortionTextureLeft) {
+		if (s_DeviceType == kUnityGfxRendererD3D11) {
+			CreateProxyUndistortionTextureLeft();
+			unityDevCon->CopyResource(proxyUndistortionTextureLeft, externalUndistortionTextureLeft);
+
+			IDXGIResource* pOtherResource(NULL);
+			HRESULT hr = proxyUndistortionTextureLeft->QueryInterface(__uuidof(IDXGIResource), (void**)&pOtherResource);
+			HANDLE sharedHandle;
+			pOtherResource->GetSharedHandle(&sharedHandle);
+			dev->OpenSharedResource(sharedHandle, __uuidof(ID3D11Texture2D), (LPVOID*)&pUndistortionTextureLeft);
+		}
+		dev->CreateShaderResourceView(pUndistortionTextureLeft, NULL, &pShaderResourceUndistortionViewLeft);
+	}
+	if (externalUndistortionTextureRight) {
+		if (s_DeviceType == kUnityGfxRendererD3D11) {
+			CreateProxyUndistortionTextureRight();
+			unityDevCon->CopyResource(proxyUndistortionTextureRight, externalUndistortionTextureRight);
+
+			IDXGIResource* pOtherResource(NULL);
+			HRESULT hr = proxyUndistortionTextureRight->QueryInterface(__uuidof(IDXGIResource), (void**)&pOtherResource);
+			HANDLE sharedHandle;
+			pOtherResource->GetSharedHandle(&sharedHandle);
+			dev->OpenSharedResource(sharedHandle, __uuidof(ID3D11Texture2D), (LPVOID*)&pUndistortionTextureRight);
+		}
+		dev->CreateShaderResourceView(pUndistortionTextureRight, NULL, &pShaderResourceUndistortionViewRight);
+	}
 }
 
 void Graphics::InitTextureSampler()
@@ -316,6 +391,12 @@ void Graphics::InitTextureSampler()
 
 	devcon->PSSetShaderResources(0, 1, &pShaderResourceViewLeft);
 	devcon->PSSetShaderResources(1, 1, &pShaderResourceViewRight);
+	devcon->PSSetShaderResources(2, 1, &pShaderResourceUndistortionViewLeft);
+	devcon->PSSetShaderResources(3, 1, &pShaderResourceUndistortionViewRight);
+
+
+
+
 	devcon->PSSetSamplers(0, 1, &pSamplerState);
 }
 
@@ -395,6 +476,22 @@ void Graphics::CleanD3D()
 	if(pSamplerState){
 		pSamplerState->Release();
 		pSamplerState = NULL;
+	}
+	if (pUndistortionTextureLeft) { 
+		pUndistortionTextureLeft->Release();
+		pUndistortionTextureLeft = NULL;
+	}
+	if (pUndistortionTextureRight) {
+		pUndistortionTextureRight->Release();
+		pUndistortionTextureRight = NULL;
+	}
+	if (proxyUndistortionTextureLeft) {
+		proxyUndistortionTextureLeft->Release();
+		proxyUndistortionTextureLeft = NULL;
+	}
+	if (proxyUndistortionTextureRight) {
+		proxyUndistortionTextureRight->Release();
+		proxyUndistortionTextureRight = NULL;
 	}
 	if(backbuffer){
 		backbuffer->Release();
