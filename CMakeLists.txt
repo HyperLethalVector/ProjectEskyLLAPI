@@ -36,15 +36,14 @@ if(WIN32)
 endif()
 
 if(WIN32)
-  if(WIN32)
-    FIND_PATH(DX_INCLUDE_PATH d3d11.h     PATHS     "$ENV{DXSDK_DIR}/Include" "C:/Program Files (x86)/Microsoft DirectX SDK/Include"     DOC "The directory where D3D11.h resides")
-    find_library(D3D11_LIBRARY d3d11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3d11.lib resides")
-    find_library(D3DX11_LIBRARY d3dx11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3dx11.lib resides")
-    set (D3D11_FOUND "YES")
-  endif()
-
+find_package (GLM REQUIRED)
+FIND_PATH(DX_INCLUDE_PATH d3d11.h     PATHS     "$ENV{DXSDK_DIR}/Include" "C:/Program Files (x86)/Microsoft DirectX SDK/Include"     DOC "The directory where D3D11.h resides")
+find_library(D3D11_LIBRARY d3d11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3d11.lib resides")
+find_library(D3DX11_LIBRARY d3dx11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3dx11.lib resides")
+set (D3D11_FOUND "YES")
 find_package(ZED 3)
 find_package(CUDA ${ZED_CUDA_VERSION} EXACT)
+
 endif()
 
 set (D3D11_LIBRARIES ${D3D11_LIB})
@@ -64,6 +63,7 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 include_directories(${ADDITIONAL_INCLUDE_DIRS})
 if(WIN32)
 include_directories(${CUDA_INCLUDE_DIRS})
+include_directories(${GLM_INCLUDE_DIRS})
 include_directories(${ZED_INCLUDE_DIRS})
 if (LINK_SHARED_ZED)
     SET(ZED_LIBS ${ZED_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUDART_LIBRARY})
@@ -80,6 +80,7 @@ add_library(libProjectEskyLLAPIIntel SHARED
 ./src/Tracker/IntelT265/main.cpp
 ./src/Tracker/IntelT265/Tracker.cpp
 ./src/Tracker/IntelT265/Serial.cpp
+./include/DollaryDooFilter.h
 ./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})

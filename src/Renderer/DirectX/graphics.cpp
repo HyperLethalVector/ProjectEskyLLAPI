@@ -82,51 +82,63 @@ void Graphics::InitD3D(HWND hWnd) {
 	doesExit = false;
 	graphicsRender = true;
 }
-
+float* DeltaPoseIdentity = new float[] {1, 0, 0, 0,
+0, 1, 0, 0,
+0, 0, 1, 0,
+0, 0, 0, 1};
 void Graphics::RenderFrame() {
+	lockRenderingFrame = true;
+	RenderLock = true;
+	for (int x = 0; x < 4; x++) {
+		for (int y = 0; y < 4; y++) {
+			myShaderVals2.deltaPoseLeft.m[x][y] = DeltaPoseIdentity[y * 4 + x];
+			myShaderVals2.deltaPoseRight.m[x][y] = DeltaPoseIdentity[y * 4 + x];
+		}
+	}
 	if (pExternalTextureLeft) {
 		unityDevCon->CopyResource(pProxyTextureLeft, pExternalTextureLeft);
 	}
 	if (pExternalTextureRight) {
 		unityDevCon->CopyResource(pProxyTextureRight, pExternalTextureRight);
 	}
+	updateDeltaPoseOnGraphicsThread = true;
+	RenderLock = false;
+	lockRenderingFrame = false;
 }
 void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	graphicsRender = true;
 	while (graphicsRender) {
-		if (updateDeltaPoseOnGraphicsThread) {
-			updateDeltaPoseOnGraphicsThread = false;
-			if (g_pConstantBuffer11_2) {
-				D3D11_MAPPED_SUBRESOURCE mappedResource;
-				devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-				ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
-				dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
-				dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
-				dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
-				dataPtr->toggleConfigs = myShaderVals2.toggleConfigs;
-				dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
-				devcon->Unmap(g_pConstantBuffer11_2, 0);
-				devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
-				devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+		if (!lockRenderingFrame && !RenderLock) {
+			if (updateDeltaPoseOnGraphicsThread) {
+				updateDeltaPoseOnGraphicsThread = false;
+				if (g_pConstantBuffer11_2) {
+					D3D11_MAPPED_SUBRESOURCE mappedResource;
+					devcon->Map(g_pConstantBuffer11_2, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+					ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
+					dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
+					dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
+					dataPtr->toggleConfigs = myShaderVals2.toggleConfigs;
+					devcon->Unmap(g_pConstantBuffer11_2, 0);
+					devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+					devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+				}
+			}
+			FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			devcon->ClearRenderTargetView(backbuffer, color);
+			UINT stride = sizeof(VERTEX);
+			UINT offset = 0;
+			devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
+			devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			devcon->Draw(4, 0);
+			swapchain->Present(0, 0);
+			if (wmCloseFromUnity) {
+				graphicsRender = false;
+			}
+			else {
+				std::this_thread::sleep_for(std::chrono::milliseconds(4));
 			}
 		}
-		FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		devcon->ClearRenderTargetView(backbuffer, color);
-		UINT stride = sizeof(VERTEX);
-		UINT offset = 0;
-		devcon->IASetVertexBuffers(0, 1, &pVBuffer, &stride, &offset);
-		devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		devcon->Draw(4, 0);
-		swapchain->Present(0, 0);
-		if (wmCloseFromUnity) {
-			graphicsRender = false;
-		}
-		else {
-			std::this_thread::sleep_for(std::chrono::milliseconds(4));
-		}
-
 	}
-
 } 
 void Graphics::GraphicsRelease() {
 	CleanD3D();
@@ -392,7 +404,6 @@ void Graphics::CleanD3D()
 		swapchain->Release();
 		dev->Release();
 		devcon->Release();
-
 		swapchain = NULL;
 		dev = NULL;
 		devcon = NULL;

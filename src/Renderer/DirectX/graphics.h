@@ -41,11 +41,14 @@ typedef struct ShaderVals {//float is 4 bytes
  
 typedef struct ShaderVals2 {
 	DirectX::XMFLOAT4X4 deltaPoseLeft;
-	DirectX::XMFLOAT4X4 deltaPoseLeftInverse;
 	DirectX::XMFLOAT4X4 deltaPoseRight;
-	DirectX::XMFLOAT4X4 deltaPoseRightInverse;
 	DirectX::XMFLOAT4 toggleConfigs;
 }ShaderVals2;
+class WindowContainer {
+public:
+	HWND myHWND;
+	int myID;
+};
 class Graphics {
 private:
 	IDXGISwapChain *swapchain;
@@ -99,6 +102,7 @@ public:
 	bool RenderLock = false;
 	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
+	bool lockRenderingFrame = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
 	void RenderFrame();
@@ -111,6 +115,9 @@ public:
 	void SetEnableFlagWarping(bool on) {
 		myShaderVals2.toggleConfigs.x = on ? 0.0 : 1.0;
 	}
+	void SetBrightness(float brightness) {
+		myShaderVals2.toggleConfigs.y = brightness;
+	} 
 	void StartRenderThread() {
 		if (!threadStarted) {
 			threadStarted = true;
@@ -122,23 +129,23 @@ public:
 		}
 	} 
 
-	void SetAffine(float* inputDeltaLeft, float* inputdeltaInverseLeft, float* inputDeltaRight, float* inputdeltaInverseRight) {
-		RenderLock = true;
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
-				myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
-				myShaderVals2.deltaPoseLeftInverse.m[x][y] = inputdeltaInverseLeft[y * 4 + x];
-				myShaderVals2.deltaPoseRight.m[x][y] = inputDeltaRight[y * 4 + x];
-				myShaderVals2.deltaPoseRightInverse.m[x][y] = inputdeltaInverseRight[y * 4 + x];
+	void SetAffine(float* inputDeltaLeft, float* inputDeltaRight) {
+		if (!RenderLock) {
+			RenderLock = true;
+			for (int x = 0; x < 4; x++) {
+				for (int y = 0; y < 4; y++) {
+					myShaderVals2.deltaPoseLeft.m[x][y] = inputDeltaLeft[y * 4 + x];
+					myShaderVals2.deltaPoseRight.m[x][y] = inputDeltaRight[y * 4 + x];
+				}
 			}
+			updateDeltaPoseOnGraphicsThread = true;
+			RenderLock = false;
 		}
-		updateDeltaPoseOnGraphicsThread = true;
-		RenderLock = false;
 	}
 	void SetInformation(float leftUvToRectX[],// = { 0.0 };
 		float leftUvToRectY[],// = { 0.0 };
 		float rightUvToRectX[],// = { 0.0 };
-		float rightUvToRectY[],// = { 0.0 };
+		float rightUvToRectY[],// = { 0.0 }; 
 		float CameraMatrixLeft[],// = { 0.0 };
 		float CameraMatrixRight[],// = { 0.0 };
 		float InvCameraMatrixLeft[],// = { 0.0 };
@@ -146,7 +153,7 @@ public:
 		float leftOffset[],// = { 0.0 };
 		float rightOffset[],// = { 0.0 };
 		float eyeBorders[]) {
-
+		  
 		myShaderVals.eyeBordersLeft.x = eyeBorders[0];myShaderVals.eyeBordersLeft.y = eyeBorders[1];myShaderVals.eyeBordersLeft.z = eyeBorders[2];myShaderVals.eyeBordersLeft.w = eyeBorders[3];
 		myShaderVals.eyeBordersRight.x = eyeBorders[4];myShaderVals.eyeBordersRight.y = eyeBorders[5];myShaderVals.eyeBordersRight.z = eyeBorders[6];myShaderVals.eyeBordersRight.w = eyeBorders[7];
 		myShaderVals.offsets.x = leftOffset[0]; myShaderVals.offsets.y = leftOffset[1]; myShaderVals.offsets.z = rightOffset[0]; myShaderVals.offsets.w = rightOffset[1];
@@ -160,13 +167,13 @@ public:
 				myShaderVals.cameraMatrixRight.m[x][y] = CameraMatrixRight[y * 4 + x];
 				myShaderVals.InvCameraMatrixLeft.m[x][y] = InvCameraMatrixLeft[y * 4 + x];
 				myShaderVals.InvCameraMatrixRight.m[x][y] = InvCameraMatrixRight[y * 4 + x];
+				myShaderVals2.deltaPoseLeft.m[x][y] = 0.0f;
+				myShaderVals2.deltaPoseRight.m[x][y] = 0.0f;
 			}
 		}
 		for (int x = 0; x < 4; x++) {
 			myShaderVals2.deltaPoseLeft.m[x][x] = 1.0;
-			myShaderVals2.deltaPoseLeftInverse.m[x][x] = 1.0;
 			myShaderVals2.deltaPoseRight.m[x][x] = 1.0;
-			myShaderVals2.deltaPoseRightInverse.m[x][x] = 1.0;
 		}
 		if (g_pConstantBuffer11) {
 			D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -193,8 +200,6 @@ public:
 			ShaderVals2* dataPtr = (ShaderVals2*)mappedResource.pData;
 			dataPtr->deltaPoseLeft = myShaderVals2.deltaPoseLeft;
 			dataPtr->deltaPoseRight = myShaderVals2.deltaPoseRight;
-			dataPtr->deltaPoseLeftInverse = myShaderVals2.deltaPoseLeftInverse;
-			dataPtr->deltaPoseRightInverse = myShaderVals2.deltaPoseRightInverse;
 			devcon->Unmap(g_pConstantBuffer11_2, 0);
 			devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2); 

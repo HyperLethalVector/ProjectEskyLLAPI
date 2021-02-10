@@ -79,7 +79,7 @@ extern "C" {
 #else   
                 sensors[camID]->m_Device = m_Device;
 #endif
-            }
+            } 
         }
     } 
      
@@ -95,13 +95,6 @@ extern "C" {
         sensors[camID]->stopFlags = true;
     }
      
-    DLL_EXPORT void SubscribeCallback(int camID, FuncReceiveCameraImageCallback callback) {
-        if (sensors.count(camID)) { 
-            if (sensors[camID] != nullptr) {
-                sensors[camID]->SubscribeReceiver(callback);
-            }    
-        }    
-    }  
     DLL_EXPORT void SubscribeCallbackWithID(int instanceID, int camID, FuncReceiveCameraImageCallbackWithID callback) {
         if (sensors.count(camID)) {
             if (sensors[camID] != nullptr) {
@@ -160,63 +153,7 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
         nextCamToRender = camID;
         return OnRenderEvent;//just to satisfy unity's needs
 }
-//void DoBackgroundRender() {
-//	while (windowGraphics[selectedWnd].graphicsRender) {
-//		windowGraphics[selectedWnd].GraphicsBackgroundThreadRenderFrame();
-//	}
-//}
-
-
 //Create a callback delegate   
 extern "C" DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) {
     callbackInstance = cb;
-}
-void Debug::Log(const char* message, Color color) {
-    if (callbackInstance != nullptr)
-        callbackInstance(message, (int)color, (int)strlen(message));
-}
- 
-void  Debug::Log(const std::string message, Color color) {
-    const char* tmsg = message.c_str();
-    if (callbackInstance != nullptr)
-        callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
-}
-
-void  Debug::Log(const int message, Color color) {
-    std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-}
-
-void  Debug::Log(const char message, Color color) {
-    std::stringstream ss;   
-    ss << message;
-    send_log(ss, color);
-}
-
-void  Debug::Log(const float message, Color color) {
-    std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-}
-
-void  Debug::Log(const double message, Color color) {
-    std::stringstream ss;
-    ss << message;
-    send_log(ss, color);
-}
-void Debug::Log(const bool message, Color color) {
-    std::stringstream ss;
-    if (message)
-        ss << "true";
-    else
-        ss << "false";
-    send_log(ss, color);
-}
-
-void Debug::send_log(const std::stringstream& ss, const Color& color) {
-    const std::string tmp = ss.str();
-    const char* tmsg = tmp.c_str();
-    if (callbackInstance != nullptr)
-        callbackInstance(tmsg, (int)color, (int)strlen(tmsg));
 }
