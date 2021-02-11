@@ -4,8 +4,7 @@ set(RENDERING_PLUGIN_SRC
   ./RenderingPlugin.cpp)
 
 set(RENDERING_PLUGIN_DEFS
-  BUILDER_STATIC_DEFINE
-)
+  BUILDER_STATIC_DEFINE)
 
 # Only build rendering plugin if at least one graphics API is found
 set(BUILD_RENDERING_PLUGIN NO)
@@ -19,9 +18,7 @@ include(FindVulkan)
 if(Vulkan_FOUND)
   message("Building rendering plugin with Vulkan support")
   set(BUILD_RENDERING_PLUGIN YES)
-
   list(APPEND RENDERING_PLUGIN_SRC)
-
   list(APPEND RENDERING_PLUGIN_DEFS "SUPPORT_VULKAN")
 else()
   message(WARNING "Building rendering plugin without Vulkan support")
