@@ -4,7 +4,7 @@
 #include <fstream>
 #include <thread>  
 #include <iostream>    
-#define STB_IMAGE_IMPLEMENTATION 
+#define STB_IMAGE_IMPLEMENTATION  
 #include "stb_image.h"  
 #include <array>       
 #include <cmath>     
@@ -32,9 +32,10 @@
 #ifdef __cplusplus     
 extern "C" {   
 #endif         
-    map<int,TrackerObject*> to;
-    map<int,std::thread*> t3;     
-#ifdef __linux  
+    map<int,TrackerObject*> to;   
+    map<int,std::thread*> trackerThread;     
+    map<int, std::thread*> asyncPredictor;
+#ifdef __linux    
 #else    
     ID3D11Device* m_Device;  
 #endif    
@@ -42,19 +43,24 @@ extern "C" {
         if (to.find(Id) == to.end()) {return;}
         to[Id]->ExitThreadLoop = true;
         to[Id]->StopTracking();  
-       
+        
     }           
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
         to[i]->DoFunctionTracking();     
-        delete to[i];   
-        to[i] = nullptr;   
+   //     delete to[i];   
+ //       to[i] = nullptr;   
     }
-    DLL_EXPORT void StartTrackerThread(int Id, bool useLocalization) {//ignored for now....
+    void PredictorBackgroundThread(int i) {
+        if (to.find(i) == to.end()) { return; }
+        to[i]->FunctionHeadPosePredictor();  
+    }
+    DLL_EXPORT void StartTrackerThread(int Id, bool useLocalization) {//ignored for now.... 
         if (to.find(Id) == to.end()) { return; }
         Debug::Log("Started Tracking Thread");  
-        to[Id]->ExitThreadLoop = false;   
-        t3[Id] = new std::thread(TrackerBackgroundThread,Id);
+        to[Id]->ExitThreadLoop = false;    
+        trackerThread[Id] = new std::thread(TrackerBackgroundThread,Id); 
+        asyncPredictor[Id] = new std::thread(PredictorBackgroundThread, Id);
     } 
     DLL_EXPORT float* GetLatestPose(int Id) {      
         if (to.find(Id) == to.end()) { return nullptr; } 
@@ -106,7 +112,7 @@ extern "C" {
         if (s_Graphics != nullptr) {
             s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
         }
-    }    
+    }     
     DLL_EXPORT void SetTextureInitializedCallback(int iD, FuncTextureInitializedCallback myCallback) {
         to[iD]->textureInitializedCallback = myCallback;    
     }  
@@ -114,11 +120,11 @@ extern "C" {
     {
         // Create graphics API implementation upon initialization 
         if (eventType == kUnityGfxDeviceEventInitialize)  
-        {        
+        {         
 #ifdef __linux     
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-            if (d3d != nullptr) {
+            if (d3d != nullptr) { 
                 m_Device = d3d->GetDevice();
             }
 #endif         
@@ -154,14 +160,14 @@ extern "C" {
         if (to.find(iD) == to.end()) { return; } 
         to[iD]->ResetInitialPose();   
     } 
-    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) { 
+    DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) {  
         callbackInstance = cb;
-    } 
+    }   
     DLL_EXPORT void RegisterLocalizationCallback(int iD, LocalizationCallback cb) {
-        if (to.find(iD) == to.end()) { return; }
-        to[iD]->callbackLocalization = cb;
-    } 
-    DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) {
+        if (to.find(iD) == to.end()) { return; } 
+        to[iD]->callbackLocalization = cb; 
+    }  
+    DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) { 
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackObjectPoseReceived = cb; 
     }  
