@@ -35,7 +35,7 @@ extern "C" {
             to->ExitThreadLoop = true;
         }
     } 
-    std::thread* t3;
+    std::thread* trackerThread;
     void DoFunction3() {
         to->DoFunctionTracking();
         delete to;
@@ -44,7 +44,7 @@ extern "C" {
     DLL_EXPORT void StartTrackerThread(bool useLocalization) {//ignored for now....
         Debug::Log("Started Tracking Thread");
         to->ExitThreadLoop = false; 
-        t3 = new std::thread(DoFunction3);
+        trackerThread = new std::thread(DoFunction3);
     }
     DLL_EXPORT float* GetLatestPose() {
         return to->pose;
