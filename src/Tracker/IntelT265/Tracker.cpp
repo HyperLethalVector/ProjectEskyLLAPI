@@ -111,6 +111,7 @@ public:
     int textureHeight = 0;
     int textureChannels = 0;
     bool usesIntegrator = false;
+    float CurrentTimeOffset = 0;
 
     cv::Mat distCoeffsL;
     cv::Mat intrinsicsL; 
@@ -151,6 +152,9 @@ public:
     }
     void FlagMapImport() {
        shouldLoadMap = true;
+    }
+    void UpdateTimeOffset(float time) {
+        CurrentTimeOffset = time;
     }
     void UpdateFilterTranslationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
         tfreq = _freq; 
@@ -248,8 +252,9 @@ public:
                         auto now = std::chrono::system_clock::now().time_since_epoch();
                         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
                         usingFrame = true;                        
-                        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0));
+
                         float dt_p = static_cast<float>(max(0.0, (now_ms - last_ms) / 1000.0));
+                        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset + dt_p);
                         pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
                         pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2]; 
                         pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
@@ -298,10 +303,9 @@ public:
                         }
                         now = std::chrono::system_clock::now().time_since_epoch();
                         double timeAtEnd = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-                        float timeDeltaToProcessPose = static_cast<float>(max(0.0, (now_ms - last_ms) / 1000.0));
-                        if (timeDeltaToProcessPose < 0.0025f) {//we want to ensure our process time is a minimum of 400Hz
-                            Debug::Log("Sleeping", Color::Green);
-                            float timeToWait = 0.0025f - timeDeltaToProcessPose;
+                        float timeDeltaToProcessPose = static_cast<float>(max(0.0, ((now_ms - last_ms) / 1000.0) + CurrentTimeOffset));
+                        if (timeDeltaToProcessPose < 0.005f) {//we want to ensure our process time is a minimum of 400Hz
+                            float timeToWait = 0.005f - timeDeltaToProcessPose;
                             Sleep(timeToWait * 1000);
                         }
                         else { 
@@ -658,7 +662,7 @@ public:
 #ifdef __linux__ //OGL 
 
 #else 
-
+         
         if (!LockImage) {
             if (m_Device != nullptr) {
                 if (hasReceivedTexture) {

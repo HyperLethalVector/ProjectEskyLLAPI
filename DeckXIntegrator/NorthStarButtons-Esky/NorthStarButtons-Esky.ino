@@ -47,7 +47,7 @@ void setup()
   pinMode(STORAGE, OUTPUT);
   digitalWrite(PORT_2, LOW);
   digitalWrite(PORT_1, LOW);
-  digitalWrite(STORAGE, HIGH);
+  digitalWrite(STORAGE, LOW);
   // Serial is used in this example to display the input
   // value of the SX1508_INPUT_PIN input:
   Serial.begin(9600);//.begin(9600);
@@ -101,12 +101,12 @@ void setup()
   // LOW.
   attachInterrupt(digitalPinToInterrupt(ARDUINO_INT_PIN),
                   button, FALLING);
-  digitalWrite(STORAGE, HIGH);
+  digitalWrite(STORAGE, LOW);
   analogWrite(FAN, 120);
   digitalWrite(PORT_2, HIGH);
   digitalWrite(PORT_1, HIGH);
-  Keyboard.begin();
-  Keyboard.releaseAll();
+ // Keyboard.begin();
+//  Keyboard.releaseAll();
   while (!Serial) {
     ; // wait for serial port to connect. Needed for Native USB only
   }
@@ -122,7 +122,7 @@ void loop()
     // say what you got:
     if(incomingByte == 'r'){
       Serial.println("Reset flag received");
-      digitalWrite(PORT_1, LOW);
+//      digitalWrite(PORT_1, LOW);
       digitalWrite(PORT_2, LOW);
       portResetTimeout = millis() + 500;
       portResetting = true;
