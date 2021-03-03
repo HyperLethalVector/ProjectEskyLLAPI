@@ -32,19 +32,23 @@
 #ifdef __cplusplus     
 extern "C" {   
 #endif         
-    map<int,TrackerObject*> to;   
+    map<int,TrackerObject*> to;    
     map<int,std::thread*> trackerThread;     
     map<int, std::thread*> asyncPredictor;
-#ifdef __linux    
+#ifdef __linux       
 #else    
     ID3D11Device* m_Device;  
-#endif    
+#endif     
     DLL_EXPORT void StopTrackers(int Id) { 
         if (to.find(Id) == to.end()) {return;}
         to[Id]->ExitThreadLoop = true;
         to[Id]->StopTracking();  
         
     }           
+    DLL_EXPORT void SetTimeOffset(int Id, float value) {
+        if (to.find(Id) == to.end()) { return; }
+        to[Id]->UpdateTimeOffset(value);
+    }
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
         to[i]->DoFunctionTracking();     
