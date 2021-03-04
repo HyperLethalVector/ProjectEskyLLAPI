@@ -95,6 +95,14 @@ void Graphics::RenderFrame() {
 			myShaderVals2.deltaPoseRight.m[x][y] = DeltaPoseIdentity[y * 4 + x];
 		}
 	}
+	if (updateLuT) {
+		if (pExternalTextureLeftLuT) {
+			unityDevCon->CopyResource(pProxyTextureLeftLuT, pExternalTextureLeftLuT);
+		}
+		if (pExternalTextureRightLuT) {
+			unityDevCon->CopyResource(pProxyTextureRightLuT, pExternalTextureRightLuT);
+		}
+	}
 	if (pExternalTextureLeft) {
 		unityDevCon->CopyResource(pProxyTextureLeft, pExternalTextureLeft);
 	}
@@ -149,6 +157,11 @@ void Graphics::SetTexturePtrLeft(void* texturePtr) {
 }
 void Graphics::SetTexturePtrRight(void* texturePtr) {
 	pExternalTextureRight = (ID3D11Texture2D*)texturePtr;
+}
+void Graphics::SetTexturePtrLuTs(void* texturePtrLeft, void* texturePtrRight) {
+	pExternalTextureLeftLuT = (ID3D11Texture2D*)texturePtrLeft;
+	pExternalTextureRightLuT = (ID3D11Texture2D*)texturePtrRight;
+	updateLuT = true;
 }
 //private methods
 
@@ -267,6 +280,23 @@ void Graphics::CreateProxyTextureRight() {
 	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
 	unityDev->CreateTexture2D(&desc, NULL, &pProxyTextureRight);
 }
+void Graphics::CreateProxyLuT() {
+	D3D11_TEXTURE2D_DESC desc;
+	ZeroMemory(&desc, sizeof(D3D11_TEXTURE2D_DESC));
+	desc.Width = unityTextureWidth;
+	desc.Height = unityTextureHeight;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = colorFormat;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
+	unityDev->CreateTexture2D(&desc, NULL, &pProxyTextureLeftLuT);
+	unityDev->CreateTexture2D(&desc, NULL, &pProxyTextureRightLuT);
+}
 void Graphics::UseExternalTexture()
 {
 	if(pExternalTextureLeft){
@@ -295,6 +325,28 @@ void Graphics::UseExternalTexture()
 		}
 		dev->CreateShaderResourceView(pTextureRight, NULL, &pShaderResourceViewRight);
 	}
+	if (pExternalTextureLeftLuT && pExternalTextureRightLuT) {
+		if (s_DeviceType == kUnityGfxRendererD3D11) {
+			CreateProxyLuT();
+
+			unityDevCon->CopyResource(pProxyTextureRightLuT, pExternalTextureRightLuT);
+			unityDevCon->CopyResource(pProxyTextureLeftLuT, pExternalTextureLeftLuT);
+
+			IDXGIResource* pOtherResourceR(NULL);
+			IDXGIResource* pOtherResourceL(NULL);
+
+			HRESULT hrR = pProxyTextureRightLuT->QueryInterface(__uuidof(IDXGIResource), (void**)&pOtherResourceR);
+			HRESULT hrL = pProxyTextureLeftLuT->QueryInterface(__uuidof(IDXGIResource), (void**)&pOtherResourceL);
+			HANDLE sharedHandleR;
+			HANDLE sharedHandleL;
+			pOtherResourceR->GetSharedHandle(&sharedHandleR);
+			pOtherResourceL->GetSharedHandle(&sharedHandleL);
+			dev->OpenSharedResource(sharedHandleR, __uuidof(ID3D11Texture2D), (LPVOID*)&pTextureRightLuT);
+			dev->OpenSharedResource(sharedHandleL, __uuidof(ID3D11Texture2D), (LPVOID*)&pTextureLeftLuT);
+		}
+		dev->CreateShaderResourceView(pTextureRightLuT, NULL, &pShaderResourceViewRightLuT);
+		dev->CreateShaderResourceView(pTextureLeftLuT, NULL, &pShaderResourceViewLeftLuT);
+	}
 }
 
 void Graphics::InitTextureSampler()
@@ -316,11 +368,13 @@ void Graphics::InitTextureSampler()
 
 	devcon->PSSetShaderResources(0, 1, &pShaderResourceViewLeft);
 	devcon->PSSetShaderResources(1, 1, &pShaderResourceViewRight);
+	devcon->PSSetShaderResources(2, 1, &pShaderResourceViewLeftLuT);
+	devcon->PSSetShaderResources(3, 1, &pShaderResourceViewRightLuT);
 	devcon->PSSetSamplers(0, 1, &pSamplerState);
 }
 
 void Graphics::InitGraphics()
-{	
+{	 
 	VERTEX OurVertices[] =
 	{
 		{-1, 1, 0, 0, 1},
@@ -372,25 +426,49 @@ void Graphics::CleanD3D()
 		pShaderResourceViewLeft->Release();
 		pShaderResourceViewLeft = NULL;
 	}
+	if (pShaderResourceViewLeftLuT) {
+		pShaderResourceViewLeftLuT->Release();
+		pShaderResourceViewLeftLuT = NULL;
+	}
 	if(pTextureLeft){
 		pTextureLeft->Release();
 		pTextureLeft = NULL;
+	}
+	if (pTextureLeftLuT) {
+		pTextureLeftLuT->Release();
+		pTextureLeftLuT = NULL;
 	}
 	if(pProxyTextureLeft){
 		pProxyTextureLeft->Release();
 		pProxyTextureLeft = NULL;
 	}
+	if (pProxyTextureLeftLuT) {
+		pProxyTextureLeftLuT->Release();
+		pProxyTextureLeftLuT = NULL;
+	}
 	if (pShaderResourceViewRight) {
 		pShaderResourceViewRight->Release();
 		pShaderResourceViewRight = NULL;
+	}
+	if (pShaderResourceViewRightLuT) {
+		pShaderResourceViewRightLuT->Release();
+		pShaderResourceViewRightLuT = NULL;
 	}
 	if (pTextureRight) {
 		pTextureRight->Release();
 		pTextureRight = NULL;
 	}
+	if (pTextureRightLuT) {
+		pTextureRightLuT->Release();
+		pTextureRightLuT = NULL;
+	}
 	if (pProxyTextureRight) {
 		pProxyTextureRight->Release();
 		pProxyTextureRight = NULL;
+	}
+	if (pProxyTextureRightLuT) {
+		pProxyTextureRightLuT->Release();
+		pProxyTextureRightLuT = NULL;
 	}
 	if(pSamplerState){
 		pSamplerState->Release();
@@ -400,6 +478,7 @@ void Graphics::CleanD3D()
 		backbuffer->Release();
 		backbuffer = NULL;
 	}
+
 	if(swapchain){
 		swapchain->Release();
 		dev->Release();
