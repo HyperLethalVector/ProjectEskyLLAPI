@@ -123,15 +123,15 @@ extern "C" {
     static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) 
     {
         // Create graphics API implementation upon initialization 
-        if (eventType == kUnityGfxDeviceEventInitialize)  
+        if (eventType == kUnityGfxDeviceEventInitialize)   
         {         
-#ifdef __linux     
+#ifdef __linux       
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             if (d3d != nullptr) { 
                 m_Device = d3d->GetDevice();
             }
-#endif         
+#endif          
         }             
         else if (eventType == kUnityGfxDeviceEventShutdown) {  
         }                
