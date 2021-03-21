@@ -58,18 +58,41 @@ private:
 	ID3D11VertexShader *pVS;    // the vertex shader
 	ID3D11PixelShader *pPS;     // the pixel shader
 	ID3D11Buffer *pVBuffer;    // global
+
 	ID3D11InputLayout *pLayout;
-	ID3D11ShaderResourceView *pShaderResourceViewLeft;
-	ID3D11ShaderResourceView *pShaderResourceViewRight;
-	ID3D11SamplerState *pSamplerState;
-	ID3D11Texture2D *pTextureLeft;
-	ID3D11Texture2D *pTextureRight;
-	ID3D11Texture2D *pProxyTextureLeft;
-	ID3D11Texture2D *pProxyTextureRight;
-	ID3D11Texture2D *pExternalTextureLeft;
-	ID3D11Texture2D *pExternalTextureRight;
+	ID3D11SamplerState* pSamplerState; // Texture Sampler
+
+
+	ID3D11ShaderResourceView* pShaderResourceViewLeft; //Left Eye render texture shader view
+	ID3D11ShaderResourceView *pShaderResourceViewRight; //Right Eye render texture shader view
+
+	ID3D11ShaderResourceView* pShaderResourceViewLeftLuT; //Left Eye LuT shader view 
+	ID3D11ShaderResourceView* pShaderResourceViewRightLuT; //Right Eye LuT shader view
+
+
+	ID3D11Texture2D* pTextureLeft; // Shader Texture view left
+	ID3D11Texture2D* pTextureRight; // Shader Texture view right
+	ID3D11Texture2D* pTextureLeftLuT; // Shader LuT Texture view left
+	ID3D11Texture2D* pTextureRightLuT; // Shader LuT Texture view right
+
+
+	ID3D11Texture2D* pProxyTextureLeft; // Proxy Texture left
+	ID3D11Texture2D* pProxyTextureRight; // Proxy Texture right
+	ID3D11Texture2D* pProxyTextureLeftLuT; // Proxy LuT  left
+	ID3D11Texture2D* pProxyTextureRightLuT; // Proxy LuT  right
+
+
+	ID3D11Texture2D* pExternalTextureLeft; //Game engine Texture reference (Left)
+	ID3D11Texture2D* pExternalTextureRight; // Game engine Texture reference (Right)
+	ID3D11Texture2D* pExternalTextureLeftLuT; //Game engine LuT  reference (Left)
+	ID3D11Texture2D* pExternalTextureRightLuT; // Game engine LuT  reference (Right)
+
+
+
 	ID3D11Buffer*   g_pConstantBuffer11 = NULL;
 	ID3D11Buffer* g_pConstantBuffer11_2 = NULL;
+
+
 	int width;
 	int height;
 	int bufferWidth = 0;
@@ -87,6 +110,7 @@ private:
 	float* beyeBorders;
 	ShaderVals myShaderVals;
 	ShaderVals2 myShaderVals2;
+	bool updateLuT = false;
 public:
 
 	bool threadStarted = false;
@@ -109,6 +133,7 @@ public:
 	void GraphicsBackgroundThreadRenderFrame();
 	void SetTexturePtrLeft(void* texturePtr);
 	void SetTexturePtrRight(void* texturePtr);
+	void SetTexturePtrLuTs(void* texturePtrLeft, void* texturePtrRight);
 	void SetSize(int w, int h) { width = w; height = h; }
 	void SetCloseFromUnity(bool closeFromUnity) { wmCloseFromUnity = closeFromUnity;}
 	bool GetCloseFromUnity() { return wmCloseFromUnity; }
@@ -211,6 +236,7 @@ private:
 	void InitPipeline(); // loads and prepares the shaders
 	void CreateProxyTextureLeft();
 	void CreateProxyTextureRight();
+	void CreateProxyLuT();
 	void UseExternalTexture();
 	void InitTextureSampler();
 	void InitGraphics();// creates the shape to render
