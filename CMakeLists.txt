@@ -3,6 +3,7 @@ project(libProjectEskyLLAPI)
 
 # Global configs
 option(LINK_SHARED_ZED "Link with the ZED SDK shared executable" ON)
+option(BUILD_RENDERER_TEST "Build the renderer test program" OFF)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT")
 if(NOT LINK_SHARED_ZED AND MSVC)
@@ -20,7 +21,6 @@ elseif(COMPILER_SUPPORTS_CXX0X)
 endif()
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 if(WIN32)
   if("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
@@ -72,6 +72,8 @@ endif()
 include_directories(./include/)
 
 if(WIN32)  # Windows
+  set(CMAKE_EXE_LINKER_FLAGS "-static")
+
   add_library(libProjectEskyLLAPIIntel SHARED
     ./src/Tracker/IntelT265/main.cpp
     ./src/Tracker/IntelT265/Tracker.cpp
