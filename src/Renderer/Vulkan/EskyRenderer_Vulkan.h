@@ -2,15 +2,12 @@
 
 #include "EskyRenderer.h"
 
-#ifdef SUPPORT_VULKAN
-
 class EskyRenderer_Vulkan : public EskyRenderer {
  public:
-  ~EskyRenderer_Vulkan() {}
+  // Take Vulkan context from device in new constructor
+  EskyRenderer_Vulkan(DebugCallback);
+  ~EskyRenderer_Vulkan();
 
-  void ProcessDeviceEvent(UnityGfxDeviceEventType, IUnityInterfaces*) final {}
-
- private:
+  // EskyRenderer implementation
+  void processDeviceEvent(UnityGfxDeviceEventType, IUnityInterfaces*) final;
 };
-
-#endif  // #ifdef SUPPORT_VULKAN
