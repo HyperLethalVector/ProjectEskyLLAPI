@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <sstream>
 #include "graphics.h"
-
+#include "TextureShareD3D11Client.h"
 #ifdef __linux__ //OGL
 
 #else
@@ -21,7 +21,28 @@ ID3D11DeviceContext *unityDevCon;
 static IUnityInterfaces* s_UnityInterfaces = NULL;
 static IUnityGraphics* s_Graphics = NULL;
 static UnityGfxRenderer s_DeviceType = kUnityGfxRendererNull;  
+enum ESharedTextureName
+{
+	// Read textures
+	LeftEye = 0,
+	RightEye,
+	COUNT
+};
 
+float* DeltaPoseIdentity = new float[] {1, 0, 0, 0,
+0, 1, 0, 0,
+0, 0, 1, 0,
+0, 0, 0, 1};
+std::wstring ShareName1 = L"EskyTextures";
+std::wstring ReceiveTextureNames[] = { L"LeftEye" , L"RightEye" };
+struct FTextureShareReceiverData
+{
+	ID3D11Texture2D* Texture = nullptr;
+	ID3D11ShaderResourceView* TextureSRV = nullptr;
+};
+FTextureShareReceiverData ShareData1[] = { FTextureShareReceiverData(), FTextureShareReceiverData() };
+
+FTextureShareD3D11Client* TextureShareClient = nullptr;
 //for debug messages
 typedef void (*FuncPtr) (const char *);
 FuncPtr Debug = 0;
@@ -51,7 +72,26 @@ extern "C" void	UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnit
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
 {
 }
-
+bool Graphics::UpdateTextureShareClient()
+{
+	bool bResult = false;
+	if (TextureShareClient && TextureShareClient->BeginFrame_RenderThread(ShareName1))
+	{
+		// Receive all textures
+		for (int i = 0; i < ESharedTextureName::COUNT; i++)
+		{
+			if (TextureShareClient->ReadTextureFrame_RenderThread(ShareName1, ReceiveTextureNames[i], &ShareData1[i].Texture, &ShareData1[i].TextureSRV))
+			{
+				bResult = true;
+			}
+		}
+		// Get frame data
+		FTextureShareSDKAdditionalData FrameData;
+		TextureShareClient->ReadAdditionalData(ShareName1, &FrameData);
+		TextureShareClient->EndFrame_RenderThread(ShareName1);
+	}
+	return bResult;
+}
 DXGI_FORMAT Graphics::colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 int Graphics::sampleCount = 1;
 int Graphics::descQuality = 0;
@@ -81,37 +121,18 @@ void Graphics::InitD3D(HWND hWnd) {
     InitGraphics();
 	doesExit = false;
 	graphicsRender = true;
-}
-float* DeltaPoseIdentity = new float[] {1, 0, 0, 0,
-0, 1, 0, 0,
-0, 0, 1, 0,
-0, 0, 0, 1};
-void Graphics::RenderFrame() {
-	lockRenderingFrame = true;
-	RenderLock = true;
-	for (int x = 0; x < 4; x++) {
-		for (int y = 0; y < 4; y++) {
-			myShaderVals2.deltaPoseLeft.m[x][y] = DeltaPoseIdentity[y * 4 + x];
-			myShaderVals2.deltaPoseRight.m[x][y] = DeltaPoseIdentity[y * 4 + x];
-		}
+	TextureShareClient = new FTextureShareD3D11Client(dev);
+
+	// Create & initialize share1
+	{
+		TextureShareClient->CreateShare(ShareName1);
+
+		// Register receive textures:
+		TextureShareClient->RegisterTexture(ShareName1, ReceiveTextureNames[ESharedTextureName::LeftEye], ETextureShareSurfaceOp::Read);
+		TextureShareClient->RegisterTexture(ShareName1, ReceiveTextureNames[ESharedTextureName::RightEye], ETextureShareSurfaceOp::Read);
+		// Begin share session
+		TextureShareClient->BeginSession(ShareName1);
 	}
-	if (updateLuT) {
-		if (pExternalTextureLeftLuT) {
-			unityDevCon->CopyResource(pProxyTextureLeftLuT, pExternalTextureLeftLuT);
-		}
-		if (pExternalTextureRightLuT) {
-			unityDevCon->CopyResource(pProxyTextureRightLuT, pExternalTextureRightLuT);
-		}
-	}
-	if (pExternalTextureLeft) {
-		unityDevCon->CopyResource(pProxyTextureLeft, pExternalTextureLeft);
-	}
-	if (pExternalTextureRight) {
-		unityDevCon->CopyResource(pProxyTextureRight, pExternalTextureRight);
-	}
-	updateDeltaPoseOnGraphicsThread = true;
-	RenderLock = false;
-	lockRenderingFrame = false;
 }
 void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	graphicsRender = true;
@@ -129,6 +150,13 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 					devcon->Unmap(g_pConstantBuffer11_2, 0);
 					devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 					devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
+				}
+			}
+			if (UpdateTextureShareClient()) {//we received a new frame, set the shader resources
+				if (!receivedTextureShareResource) {
+					receivedTextureShareResource = true;
+					devcon->PSSetShaderResources(0, 1, &ShareData1[0].TextureSRV);
+					devcon->PSSetShaderResources(1, 1, &ShareData1[1].TextureSRV);
 				}
 			}
 			FLOAT color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -150,6 +178,13 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 } 
 void Graphics::GraphicsRelease() {
 	CleanD3D();
+	if (TextureShareClient)
+	{
+		TextureShareClient->EndSession(ShareName1);
+		TextureShareClient->DeleteShare(ShareName1);
+		delete TextureShareClient;
+		TextureShareClient = nullptr;
+	}
 }
 
 void Graphics::SetTexturePtrLeft(void* texturePtr) {

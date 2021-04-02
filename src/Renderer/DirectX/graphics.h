@@ -127,6 +127,7 @@ public:
 	bool updateDeltaPoseOnGraphicsThread = false;
 	bool graphicsRender = false;
 	bool lockRenderingFrame = false;
+	bool receivedTextureShareResource = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
 	void RenderFrame();
@@ -230,6 +231,7 @@ public:
 			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2); 
 		}
 	}
+	bool UpdateTextureShareClient();
 private:
 	void SetViewport(int width, int height);
 	void SetBufferRenderTargets();

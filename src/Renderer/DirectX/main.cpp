@@ -210,15 +210,3 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitGr
 	return OnInitGraphics;
 }
 
-static void UNITY_INTERFACE_API OnRenderEvent(int eventID) {
-	std::map<int, Graphics>::iterator it = windowGraphics.begin();
-	while (it != windowGraphics.end()) {
-			it->second.RenderFrame();
-			it++;
-	}
-}
-
-extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc(){
-	return OnRenderEvent;
-}
-
