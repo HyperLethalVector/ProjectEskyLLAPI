@@ -54,7 +54,7 @@ HWND CreateNewWindow(int windowId, LPCWSTR titlestr, int width, int height, bool
 	if(wcslen(titlestr) > 0){
 		title = (LPCSTR)titlestr;		
 	}	
-	WNDCLASSEXA windowClass;  
+	WNDCLASSEXW windowClass;  
 	HWND hWnd;  
 	ZeroMemory(&windowClass, sizeof(WNDCLASSEX));
 
@@ -72,12 +72,12 @@ HWND CreateNewWindow(int windowId, LPCWSTR titlestr, int width, int height, bool
 	windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);  
 	windowClass.hbrBackground = (HBRUSH)COLOR_BACKGROUND;
 	windowClass.lpszMenuName = NULL;  
-	windowClass.lpszClassName = title;
+	windowClass.lpszClassName = (LPCWSTR)title;
 	
 	Graphics graphics;
 	graphics.SetSize(width, height);
 	  
-	UnregisterClass((LPCSTR)title, hInstance);
+	UnregisterClass((LPCWSTR)title, hInstance);
 
 	if (!RegisterClassEx(&windowClass)) {  
 		return NULL; 
@@ -85,7 +85,7 @@ HWND CreateNewWindow(int windowId, LPCWSTR titlestr, int width, int height, bool
 
 	RECT wr = {0, 0, width, height};
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-	hWnd = CreateWindowEx(dwExStyle, (LPCSTR)title, (LPCSTR)title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
+	hWnd = CreateWindowEx(dwExStyle, (LPCWSTR)title, (LPCWSTR)title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
 	if(noStyle){
 		SetWindowLong(hWnd, GWL_STYLE, 0);
 	} 

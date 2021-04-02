@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.7.2)
 
 #
 project(libProjectEskyLLAPI)
-
+add_definitions(-DUNICODE -D_UNICODE)
 #Global configs
 option(LINK_SHARED_ZED "Link with the ZED SDK shared executable" ON)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
@@ -35,7 +35,11 @@ if(WIN32)
     set(ADDITIONAL_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\include")   # TODO: Update this variable to correct path - folder where librealsense2 folder is found
 endif()
 
+set(Texture_Share_Include "C:\\UnrealEngineSource\\UnrealEngine\\Engine\\Binaries\\Win64\\TextureShareSDK\\Public" CACHE STRING "Texture share include")
+set(Texture_Share_Lib "C:\\UnrealEngineSource\\UnrealEngine\\Engine\\Binaries\\Win64\\TextureShareSDK\\TextureShareSDK.lib" CACHE STRING "Texture share lib") 
+set(Texture_Share_Dll "C:\\UnrealEngineSource\\UnrealEngine\\Engine\\Binaries\\Win64\\TextureShareSDK\\TextureShareSDK.dll" CACHE STRING "Texture share dll") 
 if(WIN32)
+
 find_package (GLM REQUIRED)
 FIND_PATH(DX_INCLUDE_PATH d3d11.h     PATHS     "$ENV{DXSDK_DIR}/Include" "C:/Program Files (x86)/Microsoft DirectX SDK/Include"     DOC "The directory where D3D11.h resides")  
 find_library(D3D11_LIBRARY d3d11.lib     PATHS     "$ENV{DXSDK_DIR}/Lib/x64" "C:/Program Files (x86)/Microsoft DirectX SDK/Lib/x64"     DOC "The directory where d3d11.lib resides")  
@@ -75,7 +79,7 @@ endif()
 endif()
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 include_directories(./include/)
-
+include_directories(${Texture_Share_Include})
 
 
 
@@ -105,10 +109,14 @@ add_library(ProjectEskyLLAPIRenderer SHARED
 ./src/Renderer/DirectX/main.cpp 
 ./src/Renderer/DirectX/graphics.cpp 
 ./src/Renderer/DirectX/graphics.h
+./src/Renderer/DirectX/TextureShareD3D11Client.cpp
+./src/Renderer/DirectX/TextureShareD3D11Client.h
+./src/Renderer/DirectX/TextureShareD3D11Helper.cpp
+./src/Renderer/DirectX/TextureShareD3D11Helper.h
 )
 
 set_target_properties(ProjectEskyLLAPIRenderer PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
-target_link_libraries(ProjectEskyLLAPIRenderer ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} "-static")
+target_link_libraries(ProjectEskyLLAPIRenderer ${DEPENDENCIES}  ${OpenCV_LIBS} ${D3D11_LIBRARY} ${D3DX11_LIBRARY} ${Texture_Share_Lib} "-static")
 
 #RGBSensorModule
 add_library(libProjectEskyRGBSensorModule SHARED
@@ -163,5 +171,9 @@ message(STATUS "Will try to copy from ${DLL_DIR} to ${PROJECT_BINARY_OUTPUT_PATH
 add_custom_command(TARGET libProjectEskyLLAPIIntel POST_BUILD        # Adds a post-build event to rs-getting-started
     COMMAND ${CMAKE_COMMAND} -E copy_if_different              # which executes "cmake - E copy_if_different..."
         "${DLL_DIR}/realsense2.dll"                            # <--this is in-file
+        ${PROJECT_BINARY_OUTPUT_PATH})                 # <--this is out-file path
+add_custom_command(TARGET ProjectEskyLLAPIRenderer POST_BUILD        # Adds a post-build event to rs-getting-started
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different              # which executes "cmake - E copy_if_different..."
+        "${Texture_Share_Dll}"                            # <--this is in-file
         ${PROJECT_BINARY_OUTPUT_PATH})                 # <--this is out-file path
 endif()
