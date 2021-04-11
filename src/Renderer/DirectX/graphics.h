@@ -12,10 +12,13 @@
 #include "IUnityGraphics.h"
 
 #include "IUnityGraphicsD3D11.h"
-
+#include "TextureShareD3D11Client.h"
 #include <string>
 #include <DirectXMath.h>
 
+void DebugMessage(const wchar_t* message);
+
+typedef void(*RenderedFrameCallback)();
 struct VERTEX
 {
 	FLOAT X, Y, Z;      // position
@@ -61,7 +64,7 @@ private:
 
 	ID3D11InputLayout *pLayout;
 	ID3D11SamplerState* pSamplerState; // Texture Sampler
-
+	bool initializedWithTextures = false;
 
 	ID3D11ShaderResourceView* pShaderResourceViewLeft; //Left Eye render texture shader view
 	ID3D11ShaderResourceView *pShaderResourceViewRight; //Right Eye render texture shader view
@@ -112,7 +115,7 @@ private:
 	ShaderVals2 myShaderVals2;
 	bool updateLuT = false;
 public:
-
+	RenderedFrameCallback renderedFrameCallback;
 	bool threadStarted = false;
 	bool hasNewFrame = false;
 	bool doesExit = false;
@@ -128,15 +131,20 @@ public:
 	bool graphicsRender = false;
 	bool lockRenderingFrame = false;
 	bool receivedTextureShareResource = false;
+	bool hasExitedGraphicsThread = false;
+	bool hasClosedWindow = false;
+	bool hasClosedExternalWindow = false;
 	void InitD3D(HWND hWnd);
 	void GraphicsRelease();
-	void RenderFrame();
 	void GraphicsBackgroundThreadRenderFrame();
 	void SetTexturePtrLeft(void* texturePtr);
 	void SetTexturePtrRight(void* texturePtr);
 	void SetTexturePtrLuTs(void* texturePtrLeft, void* texturePtrRight);
 	void SetSize(int w, int h) { width = w; height = h; }
-	void SetCloseFromUnity(bool closeFromUnity) { wmCloseFromUnity = closeFromUnity;}
+	void SetCloseFromUnity(bool closeFromUnity) {
+		DebugMessage(L"Closing from unity");
+		wmCloseFromUnity = closeFromUnity; 
+	}
 	bool GetCloseFromUnity() { return wmCloseFromUnity; }
 	void SetEnableFlagWarping(bool on) {
 		myShaderVals2.toggleConfigs.x = on ? 0.0 : 1.0;
@@ -179,7 +187,7 @@ public:
 		float leftOffset[],// = { 0.0 };
 		float rightOffset[],// = { 0.0 };
 		float eyeBorders[]) {
-		  
+		DebugMessage(L"Setting the variables");
 		myShaderVals.eyeBordersLeft.x = eyeBorders[0];myShaderVals.eyeBordersLeft.y = eyeBorders[1];myShaderVals.eyeBordersLeft.z = eyeBorders[2];myShaderVals.eyeBordersLeft.w = eyeBorders[3];
 		myShaderVals.eyeBordersRight.x = eyeBorders[4];myShaderVals.eyeBordersRight.y = eyeBorders[5];myShaderVals.eyeBordersRight.z = eyeBorders[6];myShaderVals.eyeBordersRight.w = eyeBorders[7];
 		myShaderVals.offsets.x = leftOffset[0]; myShaderVals.offsets.y = leftOffset[1]; myShaderVals.offsets.z = rightOffset[0]; myShaderVals.offsets.w = rightOffset[1];
@@ -196,7 +204,7 @@ public:
 				myShaderVals2.deltaPoseLeft.m[x][y] = 0.0f;
 				myShaderVals2.deltaPoseRight.m[x][y] = 0.0f;
 			}
-		}
+		} 
 		for (int x = 0; x < 4; x++) {
 			myShaderVals2.deltaPoseLeft.m[x][x] = 1.0;
 			myShaderVals2.deltaPoseRight.m[x][x] = 1.0;
@@ -230,7 +238,7 @@ public:
 			devcon->VSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2);
 			devcon->PSSetConstantBuffers(1, 1, &g_pConstantBuffer11_2); 
 		}
-	}
+	} 
 	bool UpdateTextureShareClient();
 private:
 	void SetViewport(int width, int height);

@@ -39,11 +39,14 @@ extern "C" {
 #else    
     ID3D11Device* m_Device;  
 #endif     
-    DLL_EXPORT void StopTrackers(int Id) { 
+    DLL_EXPORT void StopTrackers(int Id) {  
         if (to.find(Id) == to.end()) {return;}
         to[Id]->ExitThreadLoop = true;
         to[Id]->StopTracking();  
-        
+        while (!to[Id]->hasExitedPredictorThread || !to[Id]->hasExitedPredictorThread) {
+            //Infinite loop if it's not exited
+            Debug::Log("Stopping the tracker");
+        }
     }           
     DLL_EXPORT void SetTimeOffset(int Id, float value) {
         if (to.find(Id) == to.end()) { return; }
@@ -51,18 +54,22 @@ extern "C" {
     }
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
-        to[i]->DoFunctionTracking();     
+        to[i]->DoFunctionTracking();    
+        to[i]->hasExitedPredictorThread = true;
    //     delete to[i];   
  //       to[i] = nullptr;   
     }
     void PredictorBackgroundThread(int i) {
         if (to.find(i) == to.end()) { return; }
         to[i]->FunctionHeadPosePredictor();  
+        to[i]->hasExitedTrackerThread = true;
     }
     DLL_EXPORT void StartTrackerThread(int Id, bool useLocalization) {//ignored for now.... 
         if (to.find(Id) == to.end()) { return; }
         Debug::Log("Started Tracking Thread");  
         to[Id]->ExitThreadLoop = false;    
+        to[Id]->hasExitedTrackerThread = false;
+        to[Id]->hasExitedPredictorThread = false;
         trackerThread[Id] = new std::thread(TrackerBackgroundThread,Id); 
         asyncPredictor[Id] = new std::thread(PredictorBackgroundThread, Id);
     } 
@@ -173,13 +180,13 @@ extern "C" {
     }  
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) { 
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->callbackObjectPoseReceived = cb; 
-    }  
+        to[iD]->callbackObjectPoseReceived = cb;  
+    }   
     DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackBinaryMap = cb; 
-    }          
-    DLL_EXPORT void SetSerialComPort(int iD, int port) { 
+    }           
+    DLL_EXPORT void SetSerialComPort(int iD, int port) {  
         if (to.find(iD) == to.end()) { return; }
         to[iD]->usesIntegrator = true;  
         to[iD]->SetComPortString(port); 

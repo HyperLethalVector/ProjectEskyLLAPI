@@ -143,6 +143,8 @@ public:
     bool filterEnabled = true;
     float rfreq, rmincutoff, rbeta, rdcutoff = 0;
     float tfreq, tmincutoff, tbeta, tdcutoff = 0;
+    bool hasExitedPredictorThread = false;
+    bool hasExitedTrackerThread = false;
     void ConvMatrixToFloatArray(glm::mat4 src, float* target) { 
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 4; y++){
@@ -278,13 +280,13 @@ public:
                         if (resetInitialPose) {
         //                    Debug::Log("Reset the initial pose", Color::Green);
                             resetInitialPose = false; 
-                            PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                            PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], latestPose[4], latestPose[3], latestPose[5]));
                             PoseInitial[3][0] = latestPose[1];
                             PoseInitial[3][1] = -latestPose[0]; 
                             PoseInitial[3][2] = -latestPose[2];
                         }
           //              Debug::Log("Reset the final pose", Color::Green);
-                        PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                        PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], latestPose[4], latestPose[3], latestPose[5]));
                         PoseFinal[3][0] = latestPose[1];
                         PoseFinal[3][1] = -latestPose[0];
                         PoseFinal[3][2] = -latestPose[2];
