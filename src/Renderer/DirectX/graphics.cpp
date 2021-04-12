@@ -160,6 +160,8 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	hasExitedGraphicsThread = false;
 	hasClosedExternalWindow = false;
 	hasClosedWindow = false;
+	lockRenderingFrame = false;
+	RenderLock = false;
 	DebugMessage(L"Creating texture share client");
 	if (!TextureShareClient) {
 		TextureShareClient = new FTextureShareD3D11Client(dev);
@@ -174,6 +176,7 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	TextureShareClient->BeginSession(ShareName1);
 	devcon->PSSetShaderResources(0, 1, &ShareData1[0].TextureSRV);
 	devcon->PSSetShaderResources(1, 1, &ShareData1[1].TextureSRV);
+	
 	while (graphicsRender) {
 		if (!lockRenderingFrame && !RenderLock) {
 			auto now = std::chrono::system_clock::now().time_since_epoch();

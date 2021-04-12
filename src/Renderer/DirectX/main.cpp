@@ -12,7 +12,7 @@ HINSTANCE hInstance;
 std::map<int, std::thread*> myThreads;// = nullptr;
 std::map<int, HWND> windowIds;
 std::map<HWND, int> reverseLookup;//this is here just so we can kill the prior processes 
-std::map<int, Graphics> windowGraphics;
+std::map<int, Graphics*> windowGraphics;
 
 // this is the main message handler for the program
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -21,16 +21,15 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
     switch(message) 
     {
 		case WM_SIZE: // If our window is resizing   
-			windowGraphics[reverseLookup[hWnd]].SetSize(LOWORD(lParam), LOWORD(lParam));
+			windowGraphics[reverseLookup[hWnd]]->SetSize(LOWORD(lParam), LOWORD(lParam));
 			break; 
 			 
 		case WM_CLOSE:		 
-			if (windowGraphics[reverseLookup[hWnd]].GetCloseFromUnity()) {
+			if (windowGraphics[reverseLookup[hWnd]]->GetCloseFromUnity()) {
 				DebugMessage(L"Received Posted Message");
-				windowGraphics[reverseLookup[hWnd]].SetCloseFromUnity(false);
-				Graphics graphics = windowGraphics[reverseLookup[hWnd]];
-				graphics.GraphicsRelease();
-				windowGraphics.erase(reverseLookup[hWnd]); 
+				windowGraphics[reverseLookup[hWnd]]->SetCloseFromUnity(false);
+				windowGraphics[reverseLookup[hWnd]]->GraphicsRelease();
+				DebugMessage(L"Finished Posted Message, should return to normal thread now");
 			}
 			else {
 				return 0;//!! this case, won't be treated, the plugin window should be closed only from Uni ty ...
@@ -56,10 +55,11 @@ HWND CreateNewWindow(int windowId, int width, int height, bool noStyle) {
 //	}	 
 	WNDCLASSEXW windowClass;  
 	HWND hWnd;  
+	DebugMessage(L"Zeroing memory");
 	ZeroMemory(&windowClass, sizeof(WNDCLASSEX));
 
 	DWORD dwExStyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;  
-  
+	DebugMessage(L"Get module handle");
 	hInstance = GetModuleHandle(NULL);  
 
 	windowClass.cbSize = sizeof(WNDCLASSEX);
@@ -74,86 +74,111 @@ HWND CreateNewWindow(int windowId, int width, int height, bool noStyle) {
 	windowClass.lpszMenuName = NULL;  
 	windowClass.lpszClassName = title;
 	
-	Graphics graphics;
-	graphics.SetSize(width, height);
+	DebugMessage(L"Unregistering class");
 	  
 	UnregisterClass(title, hInstance);
 
+	DebugMessage(L"Registering class EX");
 	if (!RegisterClassEx(&windowClass)) {  
 		return NULL; 
 	}  
 
 	RECT wr = {0, 0, width, height};
+	DebugMessage(L"Adjusting Window Rect");
 	AdjustWindowRect(&wr, WS_OVERLAPPEDWINDOW, FALSE);
-	hWnd = CreateWindowEx(dwExStyle, title, title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
+	DebugMessage(L"Create Window EX");
+	hWnd = CreateWindowEx(dwExStyle, title, title, WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, 0, wr.right - wr.left, wr.bottom - wr.top, NULL, NULL, hInstance, NULL);
+
 	if(noStyle){
+		DebugMessage(L"No style! set window long");
 		SetWindowLong(hWnd, GWL_STYLE, 0);
 	} 
+	DebugMessage(L"Paint it black~");
 	HBRUSH brush = CreateSolidBrush(RGB(0, 0, 0));
+	DebugMessage(L"Set the class long pointer");
 	SetClassLongPtr(hWnd, GCLP_HBRBACKGROUND, (LONG_PTR)brush); 
-	ShowWindow(hWnd, SW_SHOW);    
+	
+	DebugMessage(L"Update the window");
 	UpdateWindow(hWnd); 
+	DebugMessage(L"Creating the graphics class");
+	Graphics* graphics = new Graphics();
+	DebugMessage(L"Setting the size");
+	graphics->SetSize(width, height);
+	DebugMessage(L"Storing the graphics class");
 	windowGraphics[windowId] = graphics;
+	DebugMessage(L"Show the window");
+	ShowWindow(hWnd, SW_SHOW);    
 	return hWnd; 
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRenderTextureWidthHeight(int id, int width, int height) {
 	if (windowIds.count(id)) { 
-		windowGraphics[id].unityTextureWidth = width;
-		windowGraphics[id].unityTextureHeight = height;
+		windowGraphics[id]->unityTextureWidth = width;
+		windowGraphics[id]->unityTextureHeight = height;
 	}
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetOnReceivedFrameCallback(int id, RenderedFrameCallback rfc) {
 	if (windowIds.count(id)) {
-		windowGraphics[id].renderedFrameCallback = rfc;
+		windowGraphics[id]->renderedFrameCallback = rfc;
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetEnableFlagWarping(int id, bool enabled) {
 	if (windowIds.count(id)) {
-		windowGraphics[id].SetEnableFlagWarping(enabled);
+		windowGraphics[id]->SetEnableFlagWarping(enabled);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetBrightness(int ID, float brightness) {
 	if (windowIds.count(ID)) {
-		windowGraphics[ID].SetBrightness(brightness);
+		windowGraphics[ID]->SetBrightness(brightness);
 	} 
 }  
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StartWindowById(int windowId, int width, int height, bool noBorder) {
+
+	DebugMessage(L"Starting the window");
 	windowIds[windowId] = CreateNewWindow(windowId, width, height, noBorder);
 	reverseLookup[windowIds[windowId]] = windowId; 
 }
 void DoBackgroundRender(int ID) { 
-	windowGraphics[ID].hasExitedGraphicsThread = false;
-	windowGraphics[ID].GraphicsBackgroundThreadRenderFrame();
-	windowGraphics[ID].hasExitedGraphicsThread = true;
+	windowGraphics[ID]->hasExitedGraphicsThread = false;
+	windowGraphics[ID]->GraphicsBackgroundThreadRenderFrame();
+	windowGraphics[ID]->hasExitedGraphicsThread = true;
 }   
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopWindowById(int windowId) {
 	DebugMessage(L"Something is closing me");
-	windowGraphics[windowId].SetCloseFromUnity(true);
+	windowGraphics[windowId]->SetCloseFromUnity(true);
+	myThreads[windowId]->join();
 	SendMessage(windowIds[windowId], WM_CLOSE, 0, 0);
+	DebugMessage(L"Back to normal thread, should be safe to close the window ID");
+	delete myThreads[windowId];
+	myThreads.erase(windowId);
+	delete windowGraphics[windowId];
+	windowGraphics.erase(windowId);
+	myThreads.clear();
+	windowGraphics.clear();
+	reverseLookup.clear();
 } 
   
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRectById(int windowId, int left, int top, int width, int height) {
 	if (windowIds.count(windowId)) {
 		HWND hwnd = windowIds[windowId]; 
-		windowGraphics[reverseLookup[hwnd]].SetSize(width, height);
+		windowGraphics[reverseLookup[hwnd]]->SetSize(width, height);
 		SetWindowPos(hwnd, 0, left, top, width, height, 0);   
 	}    
 } 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdLeft(int windowId, void* texturePtr) {
 	if (windowIds.count(windowId)) { 
-		windowGraphics[windowId].SetTexturePtrLeft(texturePtr);
+		windowGraphics[windowId]->SetTexturePtrLeft(texturePtr);
 	}      
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowId, void* deltaLeft, void* deltaRight) {
 	if (windowIds.count(windowId)) {
-		windowGraphics[windowId].SetAffine((float*)deltaLeft, (float*)deltaRight);
+		windowGraphics[windowId]->SetAffine((float*)deltaLeft, (float*)deltaRight);
 	}       
 } 
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRenderTexturePointerLuT(int iD, void* textureHandleLeftLuT, void* textureHandleRightLuT) {
 	if (windowIds.find(iD) == windowIds.end()) { return; }
-	windowGraphics[iD].SetTexturePtrLuTs(textureHandleLeftLuT, textureHandleRightLuT);
+	windowGraphics[iD]->SetTexturePtrLuTs(textureHandleLeftLuT, textureHandleRightLuT);
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowId,
 float leftUvToRectX[],// = { 0.0 };
@@ -168,12 +193,12 @@ float leftOffset[],// = { 0.0 };
 float rightOffset[],// = { 0.0 };  
 float eyeBorders[]) {
 	if (windowIds.count(windowId)) {
-		windowGraphics[windowId].SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, CameraMatrixLeft, CameraMatrixRight,InvCameraMatrixLeft,InvCameraMatrixRight, leftOffset, rightOffset, eyeBorders);
+		windowGraphics[windowId]->SetInformation(leftUvToRectX, leftUvToRectY, rightUvToRectX, rightUvToRectY, CameraMatrixLeft, CameraMatrixRight,InvCameraMatrixLeft,InvCameraMatrixRight, leftOffset, rightOffset, eyeBorders);
 	}
 }
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SendTextureIdToPluginByIdRight(int windowId, void* texturePtr) {
 	if (windowIds.count(windowId)) {
-		windowGraphics[windowId].SetTexturePtrRight(texturePtr);
+		windowGraphics[windowId]->SetTexturePtrRight(texturePtr);
 	}   
 }   
 static void SetAttributes(HWND hwnd, int colorKey, byte alpha, int flags) {
@@ -206,14 +231,14 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetQualitySettings(in
 }   
    
 static void UNITY_INTERFACE_API OnInitGraphics(int eventID){ 
-	windowGraphics[eventID].InitD3D(windowIds[eventID]);
+	windowGraphics[eventID]->InitD3D(windowIds[eventID]);
 	myThreads[eventID] = new std::thread(DoBackgroundRender,eventID);
 }
 
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API InitializeGraphics(int windowID) {
 	DebugMessage(L"Initializing Graphics");
-	windowGraphics[windowID].InitD3D(windowIds[windowID]); 
-	windowGraphics[windowID].hasExitedGraphicsThread = true;
+	windowGraphics[windowID]->InitD3D(windowIds[windowID]);
+//	windowGraphics[windowID].hasExitedGraphicsThread = true;
 	myThreads[windowID] = new std::thread(DoBackgroundRender, windowID);
 } 
 
