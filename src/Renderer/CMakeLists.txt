@@ -23,7 +23,9 @@ include(FindVulkan)
 if(Vulkan_FOUND)
   message("Building rendering plugin with Vulkan support")
   set(BUILD_RENDERING_PLUGIN YES)
-  list(APPEND RENDERING_PLUGIN_SRC ./Vulkan/EskyRenderer_Vulkan.cpp)
+  list(APPEND RENDERING_PLUGIN_SRC
+    ./Vulkan/EskyRenderer_Vulkan.cpp
+    ./Vulkan/EskyWindow_Vulkan.cpp)
   list(APPEND RENDERING_PLUGIN_DEFS "SUPPORT_VULKAN")
 
   # Use SDL only for Vulkan for now, until we've refactored the renderer
