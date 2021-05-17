@@ -50,6 +50,10 @@ elseif(WIN32)
 endif()
 
 if(BUILD_RENDERING_PLUGIN)
+  # C++14 is required for <memory>
+  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
   add_library(ProjectEskyLLAPIRenderer SHARED ${RENDERING_PLUGIN_SRC})
   target_include_directories(ProjectEskyLLAPIRenderer PUBLIC ${RENDERING_PLUGIN_INCLUDE})
   target_compile_definitions(ProjectEskyLLAPIRenderer PUBLIC ${RENDERING_PLUGIN_DEFS})
@@ -62,11 +66,6 @@ if(BUILD_RENDERING_PLUGIN)
     add_executable(renderer-test ./test.cpp)
     target_include_directories(renderer-test PUBLIC ${RENDERING_PLUGIN_INCLUDE})
     target_link_libraries(renderer-test ProjectEskyLLAPIRenderer)
-
-    # Test program needs C++11 for shared pointers
-    set_target_properties(renderer-test PROPERTIES
-      CXX_STANDARD 14
-      CXX_STANDARD_REQUIRED ON)
   endif()
 else()
   message(WARNING "Not building rendering plugin; no graphics APIs found")
