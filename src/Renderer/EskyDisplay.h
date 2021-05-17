@@ -19,6 +19,7 @@ class EskyDisplay {
   EskyRenderer* getRenderer();
 
   void startWindowById(int, const wchar_t*, int, int, bool);
+  EskyWindow* getWindowById(int);
   void stopWindowById(int);
 
   void setColorFormat(int);
@@ -27,10 +28,9 @@ class EskyDisplay {
  private:
   EskyRenderer* _renderer;
 
-  using Window = SDL_Window*;
-  std::vector<Window> _sdl_windows;
+  std::vector<EskyWindow*> _windows;
 
   // Private helper methods
-  Window _assertWindow(int);
+  EskyWindow* _assertWindow(int);
   static void _debugCallback(const char*);
 };

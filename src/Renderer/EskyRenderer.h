@@ -1,5 +1,6 @@
 #pragma once
 
+#include "EskyWindow.h"
 #include "IUnityGraphics.h"
 
 // Shorthand macro for exports
@@ -18,6 +19,7 @@ class EskyRenderer {
 
   virtual void processDeviceEvent(UnityGfxDeviceEventType,
                                   IUnityInterfaces*) = 0;
+  virtual EskyWindow* createWindow(SDL_Window*) = 0;
 
   void setDebugCallback(DebugCallback);
   void debugMessage(const char*);

@@ -22,7 +22,7 @@ EskyDisplay::EskyDisplay() {
 EskyDisplay::~EskyDisplay() {
   _debugCallback("Destroying EskyDisplay");
 
-  for (int i = 0; i < _sdl_windows.size(); i++) {
+  for (int i = 0; i < _windows.size(); i++) {
     stopWindowById(i);
   }
 
@@ -39,17 +39,17 @@ EskyRenderer* EskyDisplay::getRenderer() { return _renderer; }
 
 void EskyDisplay::startWindowById(int id, const wchar_t*, int, int, bool) {
   // Check that there isn't already a window here
-  Window new_window = _assertWindow(id);
-  if (new_window != nullptr) {
+  EskyWindow* old_window = _assertWindow(id);
+  if (old_window) {
     std::ostringstream error_message;
     error_message << "Window #" << id << " is already started";
     _debugCallback(error_message.str().c_str());
     return;
   }
 
-  new_window = SDL_CreateWindow("Esky Window", SDL_WINDOWPOS_UNDEFINED,
-                                SDL_WINDOWPOS_UNDEFINED, 800, 600,
-                                SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+  SDL_Window* new_window = SDL_CreateWindow(
+      "Esky Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 600,
+      SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
 
   if (!new_window) {
     std::ostringstream error_message;
@@ -60,34 +60,39 @@ void EskyDisplay::startWindowById(int id, const wchar_t*, int, int, bool) {
   }
 
   // Ensure that the window vector has enough room
-  if (id >= _sdl_windows.size()) {
+  if (id >= _windows.size()) {
     // Pad new elements with nullptr
-    _sdl_windows.resize(id + 1, nullptr);
+    _windows.resize(id + 1, nullptr);
   }
 
-  _sdl_windows[id] = new_window;
+  _windows[id] = _renderer->createWindow(new_window);
+}
+
+EskyWindow* EskyDisplay::getWindowById(int id) {
+  // TODO(marceline-cramer) EskyWindow store
+  return nullptr;
 }
 
 void EskyDisplay::stopWindowById(int id) {
-  Window window = _sdl_windows[id];
-  _sdl_windows[id] = nullptr;
+  EskyWindow* window = _assertWindow(id);
 
-  if (window != nullptr) {
-    SDL_DestroyWindow(window);
+  if (window) {
+    _windows[id] = nullptr;
+    delete window;
   }
 }
 
-EskyDisplay::Window EskyDisplay::_assertWindow(int id) {
+void EskyDisplay::setColorFormat(int colorFormat) {
+  // TODO(marceline-cramer) Set color format
+}
+
+EskyWindow* EskyDisplay::_assertWindow(int id) {
   // TODO(marceline-cramer) DebugMessage here
-  if (id < 0 || id >= _sdl_windows.size()) {
+  if (id < 0 || id >= _windows.size()) {
     return nullptr;
   }
 
-  Window window = _sdl_windows[id];
-  if (window == nullptr) {
-    return nullptr;
-  }
-
+  EskyWindow* window = _windows[id];
   return window;
 }
 
