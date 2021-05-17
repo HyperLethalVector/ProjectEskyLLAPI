@@ -2,6 +2,7 @@
 set(RENDERING_PLUGIN_SRC
   ./EskyDisplay.cpp
   ./EskyRenderer.cpp
+  ./EskyWindow.cpp
   ./RenderingPlugin.cpp)
 
 set(RENDERING_PLUGIN_DEFS

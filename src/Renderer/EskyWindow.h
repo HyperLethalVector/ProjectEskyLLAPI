@@ -1,11 +1,15 @@
 #pragma once
 
+#include <SDL2/SDL.h>
+
 class EskyWindow {
  public:
-  virtual ~EskyWindow() {}
+  EskyWindow(SDL_Window*);
+  virtual ~EskyWindow();
 
   void setTitle(const wchar_t*);
   void setRect(int, int, int, int);
+  SDL_Window* getHandle();
 
   virtual void setDeltas(void*, void*) = 0;
   virtual void setRequiredValues(...) = 0;
@@ -17,4 +21,7 @@ class EskyWindow {
 
  protected:
   virtual void _onResize() = 0;
+
+ private:
+  SDL_Window* _window_handle;
 };
