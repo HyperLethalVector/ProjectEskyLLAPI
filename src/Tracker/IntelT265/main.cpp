@@ -10,23 +10,23 @@
 #include <cmath>     
 #include <iostream> 
 #include <vector>    
-#include <iomanip>     
-#include <chrono>     
+#include <iomanip>      
+#include <chrono>      
 #include <thread> 
 #include <mutex> 
 #include <math.h>    
-#include <float.h>  
+#include <float.h>   
 #include "Tracker.cpp"   
-#ifdef __linux__
+#ifdef __linux__ 
 #else 
-#include <d3d11.h>  
+#include <d3d11.h>   
 #define STB_IMAGE_IMPLEMENTATION
-#endif 
+#endif  
 //-------------------------------------------------------------------
     
-#ifdef __linux__ 
+#ifdef __linux__  
 #define DLL_EXPORT   
-#else   
+#else    
 #define DLL_EXPORT __declspec(dllexport) 
 #endif  
 #ifdef __cplusplus     
@@ -39,12 +39,21 @@ extern "C" {
 #else    
     ID3D11Device* m_Device;  
 #endif     
+
+    DLL_EXPORT void ResetFilters(int iD, int d) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->ResetFilters();
+    }
     DLL_EXPORT void StopTrackers(int Id) { 
         if (to.find(Id) == to.end()) {return;}
         to[Id]->ExitThreadLoop = true;
-        to[Id]->StopTracking();  
-        
-    }           
+        to[Id]->StopTracking();   
+         
+    }        
+    DLL_EXPORT void UseAsyncHeadPosePredictor(int iD, bool val) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->useAsynchronousPredictor = val;
+    }
     DLL_EXPORT void SetTimeOffset(int Id, float value) {
         if (to.find(Id) == to.end()) { return; }
         to[Id]->UpdateTimeOffset(value);
@@ -128,9 +137,9 @@ extern "C" {
 #ifdef __linux       
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
-            if (d3d != nullptr) { 
+            if (d3d != nullptr) {  
                 m_Device = d3d->GetDevice();
-            }
+            } 
 #endif          
         }             
         else if (eventType == kUnityGfxDeviceEventShutdown) {  
@@ -144,9 +153,21 @@ extern "C" {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->UpdateFilterRotationParams(_freq, _mincutoff, _beta, _dcutoff);
     }  
+    DLL_EXPORT void UpdateKFilterTranslationParams(int iD, double _q, double _r) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateKFilterTranslationParams(_q, _r);
+    }
+    DLL_EXPORT void UpdateKFilterRotationParams(int iD, double _q, double _r) {
+        if (to.find(iD) == to.end()) { return; } 
+        to[iD]->UpdateKFilterRotationParams(_q,_r); 
+    }
     DLL_EXPORT void SetFilterEnabled(int iD, bool value) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->SetFilterEnabled(value);  
+    }
+    DLL_EXPORT void SetKFilterEnabled(int iD, bool value) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->SetKFilterEnabled(value);
     }
     DLL_EXPORT void RegisterMatrixDeltaConvCallback(int iD, FuncDeltaMatrixConvertCallback callback) {
         if (to.find(iD) == to.end()) { return; }
@@ -190,14 +211,14 @@ extern "C" {
     }   
 
     DLL_EXPORT void SubscribeCallbackImageWithID(int iD, int instanceID, FuncReceiveCameraImageCallbackWithID callback) {
-        to[iD]->SubscribeReceiver(callback,instanceID);
+        to[iD]->SubscribeReceiver(callback,instanceID); 
     }           
-    DLL_EXPORT void SetLeftRightEyeTransform(int iD, float* leftEyeTransform, float* rightEyeTransform) {
+    DLL_EXPORT void SetLeftRightEyeTransform(int iD, float* leftEyeTransform, float* rightEyeTransform) { 
         if (to.find(iD) == to.end()) { return; }
         to[iD]->SetLeftRightEyeTransforms(leftEyeTransform, rightEyeTransform);
     }
-}         
-  
+}            
+   
 static void UNITY_INTERFACE_API OnRenderEvent(int iD)
 { 
    to[iD]->UpdatecameraTextureGPU();  
@@ -208,6 +229,6 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
 }     
  
  
-//Create a callback delegate   
+//Create a callback delegate    
  
          

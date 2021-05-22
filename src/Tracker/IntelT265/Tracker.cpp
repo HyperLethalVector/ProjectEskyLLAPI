@@ -37,6 +37,7 @@
     #include "Serial.h"
 #endif
 #include <DollaryDooFilter.h>
+#include <KalmanFilter.h>
 #define PI 3.141592653
 typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, 
                                                     int lengthofarray, int width, int height, int pixelCount);
@@ -56,6 +57,9 @@ public:
 };
 class TrackerObject {
 public:
+    bool useAsynchronousPredictor;
+    bool useKalmanFilterPose = false;
+    KalmanFilterPose poseFilterK;
     OneDollaryDooFilterPose poseFilter;
     std::vector<SensorInfoCallback*> subscribedImageReceivers;
     rs2_intrinsics intrinsics;
@@ -141,8 +145,11 @@ public:
     rs2::context myCon;
     rs2::device myDev;
     bool filterEnabled = true;
+    bool kFilterEnabled = true;
     float rfreq, rmincutoff, rbeta, rdcutoff = 0;
     float tfreq, tmincutoff, tbeta, tdcutoff = 0;
+    float qt, rt = 1.0;
+    float qr, rr = 0.0;
     void ConvMatrixToFloatArray(glm::mat4 src, float* target) { 
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 4; y++){
@@ -163,10 +170,32 @@ public:
         tdcutoff = _dcutoff;
         poseFilter.UpdateTranslationParams(_freq, _mincutoff, _beta, _dcutoff);
     }
+    void UpdateKFilterTranslationParams(float _qt, float _rt) {
+        qt = _qt;
+        rt = _rt;
+        poseFilterK.UpdateTranslationParams(qt, rt);
+        poseFilterK.Reset();
+    }
+    void UpdateKFilterRotationParams(float _qr, float _rr) {
+        qr = _qr;
+        rr = _rr;
+        poseFilterK.UpdateRotationParams(qr, rr);
+        poseFilterK.Reset();
+    }
+
     void SetFilterEnabled(bool value) {
         filterEnabled = value;
         poseFilter.SetFilterEnabled(value); 
     }
+    void SetKFilterEnabled(bool value) {
+        poseFilterK.SetFilterEnabled(value);
+        kFilterEnabled = value;
+    }
+    void ResetFilters() {
+        poseFilter.Reset();
+        poseFilterK.Reset();
+    }
+    
     void UpdateFilterRotationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
         rfreq = _freq;
         rmincutoff = _mincutoff;
@@ -242,60 +271,63 @@ public:
         rs2_pose predicted_pose = pose;
         while (!ExitThreadLoop) {
             try {
-                if (receivedPoseFirst) {
-                        
+                if (useAsynchronousPredictor) {
+                    if (receivedPoseFirst) {
+
                         while (LockPose) {//if the pose receiver thread is copying a pose, wait for it 
 //                            Debug::Log("Image is locked",Color::Yellow); 
                             if (ExitThreadLoop)return;
                         }
-  //                      Debug::Log("Starting Pose Predictor Point Loop", Color::Green);
+                        //                      Debug::Log("Starting Pose Predictor Point Loop", Color::Green);
                         auto now = std::chrono::system_clock::now().time_since_epoch();
                         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-                        usingFrame = true;                        
+                        usingFrame = true;
 
                         float dt_p = static_cast<float>(max(0.0, (now_ms - last_ms) / 1000.0));
                         float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset + dt_p);
                         pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
-                        pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2]; 
+                        pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
                         pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
-                        pose.angular_acceleration.x= latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z= latestAngularAccel[2];
+                        pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
                         pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
-                        pose.rotation.x = latestRot[0]; pose.rotation.y=latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w=latestRot[3];
+                        pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
 
 
                         predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
                         predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
-                        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z; 
+                        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
                         rs2_vector W = {
                                 dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
                                 dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
                                 dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
                         };
                         predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
-                        poseFilter.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w, dt_p);
+                        poseFilterK.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
+                        poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
+                        poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
                         poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-      //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
+                        //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
                         if (resetInitialPose) {
-        //                    Debug::Log("Reset the initial pose", Color::Green);
-                            resetInitialPose = false; 
+                            //                    Debug::Log("Reset the initial pose", Color::Green);
+                            resetInitialPose = false;
                             PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                            PoseInitial[3][0] = latestPose[1];
-                            PoseInitial[3][1] = -latestPose[0]; 
-                            PoseInitial[3][2] = -latestPose[2];
+                            PoseInitial[3][0] = -latestPose[1];
+                            PoseInitial[3][1] = latestPose[0];
+                            PoseInitial[3][2] = latestPose[2];
                         }
-          //              Debug::Log("Reset the final pose", Color::Green);
+                        //              Debug::Log("Reset the final pose", Color::Green);
                         PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                        PoseFinal[3][0] = latestPose[1];
-                        PoseFinal[3][1] = -latestPose[0];
-                        PoseFinal[3][2] = -latestPose[2];
+                        PoseFinal[3][0] = -latestPose[1];
+                        PoseFinal[3][1] = latestPose[0];
+                        PoseFinal[3][2] = latestPose[2];
                         try {
-            //                Debug::Log("Convert to delta", Color::Green);
+                            //                Debug::Log("Convert to delta", Color::Green);
                             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
                             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
                             ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
                             ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
                             if (callbackDeltaPoseUpdate != nullptr) {
-                                callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray); 
+                                callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
                             }
                         }
                         catch (std::exception e) {
@@ -308,28 +340,29 @@ public:
                             float timeToWait = 0.005f - timeDeltaToProcessPose;
                             Sleep(timeToWait * 1000);
                         }
-                        else { 
-                        } 
+                        else {
+                        }
                         last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
                         usingFrame = false;
-                } 
-                else {
-                    latestPose[0] = 0.0f;
-                    latestPose[1] = 0.0f;
-                    latestPose[2] = 0.0f;
-                    latestPose[3] = 0.0f;
-                    latestPose[4] = 0.0f;
-                    latestPose[5] = 0.0f;
-                    latestPose[6] = 1.0f;
-                    for (int i = 0; i < 3; i++) {
-                        latestAccel[i] = 0;
-                        latestVelo[i] = 0;
-                        latestTrans[i] = 0;
-                        latestAngularAccel[i] = 0;
-                        latestAngularVelo[i] = 0;
-                        latestRot[i] = 0;
                     }
-                    latestRot[3] = 1; 
+                    else {
+                        latestPose[0] = 0.0f;
+                        latestPose[1] = 0.0f;
+                        latestPose[2] = 0.0f;
+                        latestPose[3] = 0.0f;
+                        latestPose[4] = 0.0f;
+                        latestPose[5] = 0.0f;
+                        latestPose[6] = 1.0f;
+                        for (int i = 0; i < 3; i++) {
+                            latestAccel[i] = 0;
+                            latestVelo[i] = 0;
+                            latestTrans[i] = 0;
+                            latestAngularAccel[i] = 0;
+                            latestAngularVelo[i] = 0;
+                            latestRot[i] = 0;
+                        }
+                        latestRot[3] = 1;
+                    }
                 }
             }
             catch (std::exception& e) {
@@ -357,9 +390,15 @@ public:
         while (!ExitThreadLoop) {
             try {         
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
+                poseFilterK = KalmanFilterPose();
+
                 poseFilter.UpdateTranslationParams(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff);
                 poseFilter.SetFilterEnabled(filterEnabled); 
+                poseFilterK.SetDefault(qt, rt,qr,rr);
+                poseFilterK.SetFilterEnabled(filterEnabled);
+
+
                 hasReceivedCameraStream = false;
                 receivedPoseFirst = false; 
                 rs2::pipeline pipe;
@@ -407,12 +446,21 @@ public:
                     }
                 } 
                 double lastPoseTime_ms = 0.0;
+
+                double last_msps = 0;
                 //Then let's initialize the sensor and begin tracking 
                 myProf = pipe.start(cfg, [&](rs2::frame frame) {
+                    bool hasPose = false;
+                    bool hasImage = false;
                     if (rs2::pose_frame fs = frame.as<rs2::pose_frame>()) {// For pose frames
+                        hasPose = true;
                         LockPose = true; 
                         rs2_pose pose = fs.get_pose_data();
+                        rs2_pose predicted_pose = pose;
                         lastPoseTimeStamp = fs.get_timestamp(); 
+                        auto now = std::chrono::system_clock::now().time_since_epoch();
+                        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+
                         latestAccel[0] = pose.acceleration.x; latestAccel[1] = pose.acceleration.y; latestAccel[2] = pose.acceleration.z;
                         latestVelo[0] = pose.velocity.x; latestVelo[1] = pose.velocity.y; latestVelo[2] = pose.velocity.z;
                         latestTrans[0] = pose.translation.x; latestTrans[1] = pose.translation.y; latestTrans[2] = pose.translation.z;
@@ -421,8 +469,60 @@ public:
                         latestRot[0] = pose.rotation.x; latestRot[1] = pose.rotation.y; latestRot[2] = pose.rotation.z; latestRot[3] = pose.rotation.w;
                         receivedPoseFirst = true; 
                         LockPose = false;
+
+                        if (!useAsynchronousPredictor) {
+                            float dt_p = static_cast<float>(max(0.0, (now_ms - last_msps) / 1000.0));
+                            float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
+                            pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
+                            pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
+                            pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
+                            pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
+                            pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
+                            pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
+                            predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
+                            predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
+                            predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
+                            rs2_vector W = {
+                                    dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
+                                    dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
+                                    dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
+                            }; 
+                            predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
+                            poseFilterK.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
+                            poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
+                            poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6], dt_p);
+                            poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
+                            //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
+                            if (resetInitialPose) {
+                                //                    Debug::Log("Reset the initial pose", Color::Green);
+                                resetInitialPose = false;
+                                PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                                PoseInitial[3][0] = latestPose[1];
+                                PoseInitial[3][1] = -latestPose[0];
+                                PoseInitial[3][2] = -latestPose[2];
+                            }
+                            PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                            PoseFinal[3][0] = latestPose[1];
+                            PoseFinal[3][1] = -latestPose[0];
+                            PoseFinal[3][2] = -latestPose[2];
+                            try {
+                                DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
+                                DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
+                                ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
+                                ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
+                                if (callbackDeltaPoseUpdate != nullptr) {
+                                    callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
+                                }
+                            }
+                            catch (std::exception e) {
+                                Debug::Log(e.what(), Color::Red);
+                            }
+                            now = std::chrono::system_clock::now().time_since_epoch();
+                            last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+                        }
                     }  
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
+                        hasImage = true;
                         if (receivedPoseFirst) {
                                                         LockImage = true;
                             rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);
@@ -491,6 +591,9 @@ public:
                         }
 
                     } 
+                    if (hasPose && hasImage) {
+                        Debug::Log("Has Both Pose and Image");
+                    }
                     });                
                 shouldRestart = false;
                 while (!shouldRestart && !ExitThreadLoop) {
