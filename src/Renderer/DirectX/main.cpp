@@ -146,6 +146,11 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetDeltas(int windowI
 		windowGraphics[windowId].SetAffine((float*)deltaLeft, (float*)deltaRight);
 	}       
 } 
+
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRenderTexturePointerLuT(int iD, void* textureHandleLeftLuT, void* textureHandleRightLuT) {
+	if (windowIds.find(iD) == windowIds.end()) { return; }
+	windowGraphics[iD].SetTexturePtrLuTs(textureHandleLeftLuT, textureHandleRightLuT);
+}
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetRequiredValuesById(int windowId,
 float leftUvToRectX[],// = { 0.0 };
 float leftUvToRectY[],// = { 0.0 }; 

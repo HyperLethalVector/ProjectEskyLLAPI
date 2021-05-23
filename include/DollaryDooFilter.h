@@ -1,4 +1,5 @@
 #include "common_header.h"
+#include "Filter.h"
 //The DollaryDooFilter, it's like a One Euro Filter, except down under!
 
 class LowPassFilter {
@@ -102,20 +103,37 @@ private:
 	void setDerivativeCutoff(float _dc) {
 		dcutoff = _dc;
 	}
-	double freq;
+	double freq = 300;
 	double mincutoff;
 	double beta;
-	double dcutoff;
+	double dcutoff = 0.01;
 	LowPassFilter x;
 	LowPassFilter dx;
 	double lasttime;
 };
-class OneDollaryDooFilterPose {
+class OneDollaryDooFilterPose : PoseFilter {
 	public:
+		double tfreq;
+		double tmincutoff;
+		double tbeta;
+		double tdcutoff;
+		double rfreq;
+		double rmincutoff;
+		double rbeta;
+		double rdcutoff;
+
 		OneDollaryDooFilterPose() {
 			 
 		}
 		OneDollaryDooFilterPose(double _freq, double _mincutoff = 1.0, double _beta = 0.0, double _dcutoff = 0.0) {
+			tfreq = _freq;
+			tmincutoff = _mincutoff;
+			tbeta = _beta;
+			tdcutoff = _dcutoff;
+			rfreq = _freq;
+			rmincutoff = _mincutoff;
+			rbeta = _beta;
+			rdcutoff = _dcutoff;
 			xPosFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
 			yPosFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
 			zPosFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
@@ -128,12 +146,19 @@ class OneDollaryDooFilterPose {
 			useFilter = enabled;
 		}
 		void UpdateTranslationParams(double _freq, double _mincutoff = 1.0, double _beta = 0.0, double _dcutoff = 1.0) {
+			tfreq = _freq;
+			tmincutoff = _mincutoff;
+			tbeta = _beta;
+			tdcutoff = _dcutoff;
 			xPosFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			yPosFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			zPosFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 		}
 		void UpdateRotationParams(double _freq, double _mincutoff = 1.0, double _beta = 0.0, double _dcutoff = 1.0) {
-
+			rfreq = _freq;
+			rmincutoff = _mincutoff;
+			rbeta = _beta;
+			rdcutoff = _dcutoff;
 			xRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			yRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			zRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
@@ -168,6 +193,15 @@ class OneDollaryDooFilterPose {
 			yr = rotY;
 			zr = rotZ;
 			wr = rotW; 
+		}
+		void Reset() {
+			xPosFilter = OneDollaryDooFilter(tfreq, tmincutoff, tbeta, tdcutoff);
+			yPosFilter = OneDollaryDooFilter(tfreq, tmincutoff, tbeta, tdcutoff);
+			zPosFilter = OneDollaryDooFilter(tfreq, tmincutoff, tbeta, tdcutoff);
+			xRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
+			yRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
+			zRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
+			wRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
 		}
 	private:
 		OneDollaryDooFilter xPosFilter;

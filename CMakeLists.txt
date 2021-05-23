@@ -73,7 +73,6 @@ include_directories(./include/)
 
 if(WIN32)  # Windows
   set(CMAKE_EXE_LINKER_FLAGS "-static")
-
   add_library(libProjectEskyLLAPIIntel SHARED
     ./src/Tracker/IntelT265/main.cpp
     ./src/Tracker/IntelT265/Tracker.cpp

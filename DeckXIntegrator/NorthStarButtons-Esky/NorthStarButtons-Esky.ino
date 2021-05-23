@@ -1,7 +1,7 @@
 #include <Wire.h> // Include the I2C library (required)
 //#include <SX1508.h> // Include SX1508 library
 #include <SoftwareSerial.h> // Include the Serial Library
-#include "Keyboard.h"
+//#include "Keyboard.h"
 
 // SX1508 I2C address (set by ADDR1 and ADDR0 (00 by default):
 //const byte SX1508_ADDRESS = 0x20;  // SX1508 I2C address
@@ -31,9 +31,7 @@ byte timerMask = 0x00;                      //bits to denote whether a time reco
 bool fanCycling = false;
 
 //Keycodes associated with each of the six buttons connected to the button board IO expander
-byte keycode[6] = {KEY_DOWN_ARROW, KEY_RIGHT_ARROW, KEY_UP_ARROW, KEY_LEFT_ARROW, KEY_RETURN, 0x20};
-byte keycode1[6] = {KEY_DOWN_ARROW, KEY_RIGHT_ARROW, KEY_UP_ARROW, KEY_LEFT_ARROW, KEY_RETURN, 0x20};
-byte keycode2[6] = {0xE2, 0xE6, 0xE8, 0xE4, 0x5B, 0x5D};
+
 int incomingByte = 0;
                                                                 
 bool altKeys = false;
@@ -47,7 +45,7 @@ void setup()
   pinMode(STORAGE, OUTPUT);
   digitalWrite(PORT_2, LOW);
   digitalWrite(PORT_1, LOW);
-  digitalWrite(STORAGE, HIGH);
+  digitalWrite(STORAGE, LOW);
   // Serial is used in this example to display the input
   // value of the SX1508_INPUT_PIN input:
   Serial.begin(9600);//.begin(9600);
@@ -105,8 +103,8 @@ void setup()
   analogWrite(FAN, 120);
   digitalWrite(PORT_2, HIGH);
   digitalWrite(PORT_1, HIGH);
-  Keyboard.begin();
-  Keyboard.releaseAll();
+ // Keyboard.begin();
+//  Keyboard.releaseAll();
   while (!Serial) {
     ; // wait for serial port to connect. Needed for Native USB only
   }
@@ -137,7 +135,7 @@ void timerActions() {
     long currentTime = millis();    //let's just read the time once. No need to keep consulting the hardware clock here
     if ((0b00010000 & timerMask) && !(0b00100000 & timerMask)) {    //Is button A held and button B isnt?
       if (currentTime - BUTTON_DELAY > buttonTimer[4]) {            //Has is been held longer than the time allocated to detect a dual-button press?
-        Keyboard.press(keycode[4]);
+       // Keyboard.press(keycode[4]);
         timerMask &= (~(1 << 4));                                   //Kill the timer!
       //  Serial.println("TimerMask = " + String(timerMask, BIN));    //Tell the story!
       }
@@ -145,7 +143,7 @@ void timerActions() {
     else {
       if ((0b00100000 & timerMask) && !(0b00010000 & timerMask)) {  //Same as above... yadda yadda yadda
         if (currentTime - BUTTON_DELAY > buttonTimer[5]) {
-          Keyboard.press(keycode[5]);
+       //   Keyboard.press(keycode[5]);
           timerMask &= (~(1 << 5));
         //  Serial.println("TimerMask = " + String(timerMask, BIN));
         }
@@ -155,7 +153,7 @@ void timerActions() {
         if ((0b00100000 & timerMask) && (0b00010000 & timerMask)) { //Are both buttons pressed? Separate comparisons because 0b00110000 & timerMask would evaluate to true for both OR one.
           long initiatedTime = currentTime - RESET_DELAY;                  //Let's count the dual press from when the first button press was detected
           if ((initiatedTime > buttonTimer[4]) && (initiatedTime > buttonTimer[5])) {
-//                        digitalWrite(PORT_1, LOW);
+                        digitalWrite(PORT_1, LOW);
                         digitalWrite(PORT_2, LOW);
                         portResetTimeout = millis() + 500;
                         portResetting = true;
@@ -168,7 +166,7 @@ void timerActions() {
     }
   }
   if (portResetting && millis() > portResetTimeout) {
-//    digitalWrite(PORT_1, HIGH);
+    digitalWrite(PORT_1, HIGH);
     digitalWrite(PORT_2, HIGH);
     portResetting = false;
     Serial.println("Port Reset complete");
