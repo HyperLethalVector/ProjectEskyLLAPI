@@ -88,6 +88,8 @@ add_library(libProjectEskyLLAPIIntel SHARED
 ./src/Tracker/IntelT265/Tracker.cpp 
 ./src/Tracker/IntelT265/Serial.cpp  
 ./include/DollaryDooFilter.h
+./include/KalmanFilter.h
+./include/Filter.h
 ./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
