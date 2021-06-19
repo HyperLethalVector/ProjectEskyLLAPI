@@ -61,11 +61,11 @@ extern "C" {
         if (to.find(i) == to.end()) { return; }
         to[i]->DoFunctionTracking();       
    //     delete to[i];    
- //       to[i] = nullptr;   
+ //       to[i] = nullptr;    
     } 
     void PredictorBackgroundThread(int i) {
         if (to.find(i) == to.end()) { return; }
-        to[i]->FunctionHeadPosePredictor();  
+        return;
     }
     DLL_EXPORT void StartTrackerThread(int Id, bool useLocalization) {//ignored for now.... 
         if (to.find(Id) == to.end()) { return; }

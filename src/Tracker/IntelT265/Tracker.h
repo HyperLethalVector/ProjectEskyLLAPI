@@ -263,14 +263,20 @@ public:
         slamFilterDollaryDoo.UpdateTranslationParams(_transfreq, _transmincutoff, _transbeta, _transdcutoff);
         velocityFilterDollaryDoo.UpdateTranslationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
         accellerationFilterDollaryDoo.UpdateTranslationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+        slamFilterDollaryDoo.Reset();
+        velocityFilterDollaryDoo.Reset();
+        accellerationFilterDollaryDoo.Reset();
     }
     void UpdateRotFilterDollaryDooParams(double _rotfreq, double _rotmincutoff, double _rotbeta, double _rotdcutoff,
         double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
         double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
     ) {
         slamFilterDollaryDoo.UpdateRotationParams(_rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff);
-        velocityFilterDollaryDoo.UpdateRotationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
-        accellerationFilterDollaryDoo.UpdateRotationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+        angularVelocityFilterDollaryDoo.UpdateTranslationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
+        angularAccellerationFilterDoo.UpdateTranslationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+        slamFilterDollaryDoo.Reset();
+        velocityFilterDollaryDoo.Reset();
+        accellerationFilterDollaryDoo.Reset();
     }
     void UpdateTransFilterKParams(double _transq, double _transr,
         double _velq, double _velr,
@@ -279,14 +285,20 @@ public:
         slamFilterK.UpdateTranslationParams(_transq, _transr);
         velocityFilterK.UpdateTranslationParams(_transq, _transr);
         accellerationFilterK.UpdateTranslationParams(_transq, _transr);
+        slamFilterK.Reset();
+        velocityFilterK.Reset();
+        accellerationFilterK.Reset();
     }
     void UpdateRotFilterKParams(double _rotq, double _rotr,
         double _angvelq, double _angvelr,
         double _angaccelq, double _angaccelr
     ) {
         slamFilterK.UpdateRotationParams(_rotq, _rotr);
-        angularVelocityFilterK.UpdateRotationParams(_angvelq, _angvelr);
-        angularAccellerationFilterK.UpdateRotationParams(_angaccelq, _angaccelr);
+        angularVelocityFilterK.UpdateTranslationParams(_angvelq, _angvelr);
+        angularAccellerationFilterK.UpdateTranslationParams(_angaccelq, _angaccelr);
+        slamFilterK.Reset();
+        angularVelocityFilterK.Reset();
+        angularAccellerationFilterK.Reset();
     }
 
     double* GetLatestTimestampPose() {//in theory, by extrapolating the sensor values we should get the pose at the lateset time stamp, can't be arsed translating this to the shared math library, will use intels for now
@@ -406,112 +418,6 @@ public:
 
     }
     double last_ms = 0;
-    void FunctionHeadPosePredictor() {
-        rs2_pose pose = rs2_pose();
-        rs2_pose predicted_pose = pose;
-
-        while (!ExitThreadLoop) {
-            try {
-                if (useAsynchronousPredictor) {
-                    if (receivedPoseFirst) {
-
-                        while (LockPose) {//if the pose receiver thread is copying a pose, wait for it 
-//                            Debug::Log("Image is locked",Color::Yellow); 
-                            if (ExitThreadLoop)return;
-                        }
-                        //                      Debug::Log("Starting Pose Predictor Point Loop", Color::Green);
-                        auto now = std::chrono::system_clock::now().time_since_epoch();
-                        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-                        usingFrame = true;
-
-                        float dt_p = static_cast<float>(max(0.0, (now_ms - last_ms) / 1000.0));
-                        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset + dt_p);
-                        pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
-                        pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
-                        pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
-                        pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
-                        pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
-                        pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
-
-
-
-                        predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
-                        predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
-                        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
-                        rs2_vector W = {
-                                dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
-                                dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
-                                dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
-                        };
-                        predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
-                        poseFilterK.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
-                        poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                        poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                        poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                        //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
-                        if (resetInitialPose) {
-                            //                    Debug::Log("Reset the initial pose", Color::Green);
-                            resetInitialPose = false;
-                            PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                            PoseInitial[3][0] = -latestPose[1];
-                            PoseInitial[3][1] = latestPose[0];
-                            PoseInitial[3][2] = latestPose[2];
-                        }
-                        //              Debug::Log("Reset the final pose", Color::Green);
-                        PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                        PoseFinal[3][0] = -latestPose[1];
-                        PoseFinal[3][1] = latestPose[0];
-                        PoseFinal[3][2] = latestPose[2];
-                        try {
-                            //                Debug::Log("Convert to delta", Color::Green);
-                            DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
-                            DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
-                            ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
-                            ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
-                            if (callbackDeltaPoseUpdate != nullptr) {
-                                callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
-                            }
-                        }
-                        catch (std::exception e) {
-                            Debug::Log(e.what(), Color::Red);
-                        }
-                        now = std::chrono::system_clock::now().time_since_epoch();
-                        double timeAtEnd = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-                        float timeDeltaToProcessPose = static_cast<float>(max(0.0, ((now_ms - last_ms) / 1000.0) + CurrentTimeOffset));
-                        if (timeDeltaToProcessPose < 0.005f) {//we want to ensure our process time is a minimum of 400Hz
-                            float timeToWait = 0.005f - timeDeltaToProcessPose;
-                            Sleep(timeToWait * 1000);
-                        }
-                        else {
-                        }
-                        last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-                        usingFrame = false;
-                    }
-                    else {
-                        latestPose[0] = 0.0f;
-                        latestPose[1] = 0.0f;
-                        latestPose[2] = 0.0f;
-                        latestPose[3] = 0.0f;
-                        latestPose[4] = 0.0f;
-                        latestPose[5] = 0.0f;
-                        latestPose[6] = 1.0f;
-                        for (int i = 0; i < 3; i++) {
-                            latestAccel[i] = 0;
-                            latestVelo[i] = 0;
-                            latestTrans[i] = 0;
-                            latestAngularAccel[i] = 0;
-                            latestAngularVelo[i] = 0;
-                            latestRot[i] = 0;
-                        }
-                        latestRot[3] = 1;
-                    }
-                }
-            }
-            catch (std::exception& e) {
-                Debug::Log(e.what(), Color::Red);
-            }
-        }
-    }
     void DoFunctionTracking() {
         if (usesIntegrator) {
 #ifdef __linux__
@@ -533,6 +439,7 @@ public:
         double tempw = 1;
         while (!ExitThreadLoop) {
             try {
+                Debug::Log("Starting Thread", Color::Green);
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilterK = KalmanFilterPose();
 
@@ -621,6 +528,7 @@ public:
                         float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
 
                         // The following does a per-segment filter on each part, exposing it via getlatestposetimestamp
+                        /*
                         slamFilterK.Filter(pose.translation.x, pose.translation.y, pose.translation.z, pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
 
                         velocityFilterK.Filter(pose.velocity.x, pose.velocity.y, pose.velocity.z, 0, 0, 0, 1);
@@ -645,7 +553,7 @@ public:
                         velocityFilterDollaryDoo.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
                         accellerationFilterDollaryDoo.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
                         angularVelocityFilterDollaryDoo.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
-                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
+                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);*/
 
                         pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
                         pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
