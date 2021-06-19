@@ -1,4 +1,4 @@
-#include "common_header.h" 
+
 #include <stdio.h>
 #include <sstream>
 #include <fstream>
@@ -16,14 +16,13 @@
 #include <mutex> 
 #include <math.h>    
 #include <float.h>   
-#include "Tracker.cpp"   
+#include "Tracker.h"   
 #ifdef __linux__ 
 #else 
 #include <d3d11.h>   
 #define STB_IMAGE_IMPLEMENTATION
 #endif  
 //-------------------------------------------------------------------
-    
 #ifdef __linux__  
 #define DLL_EXPORT   
 #else    
@@ -53,17 +52,17 @@ extern "C" {
     DLL_EXPORT void UseAsyncHeadPosePredictor(int iD, bool val) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->useAsynchronousPredictor = val;
-    }
+    } 
     DLL_EXPORT void SetTimeOffset(int Id, float value) {
         if (to.find(Id) == to.end()) { return; }
         to[Id]->UpdateTimeOffset(value);
     }
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
-        to[i]->DoFunctionTracking();     
-   //     delete to[i];   
+        to[i]->DoFunctionTracking();       
+   //     delete to[i];    
  //       to[i] = nullptr;   
-    }
+    } 
     void PredictorBackgroundThread(int i) {
         if (to.find(i) == to.end()) { return; }
         to[i]->FunctionHeadPosePredictor();  
@@ -79,6 +78,11 @@ extern "C" {
         if (to.find(Id) == to.end()) { return nullptr; } 
        return to[Id]->latestPose;  
     }   
+    DLL_EXPORT float* GetTimestampedPose(int Id) {
+        if (to.find(Id) == to.end()) { return nullptr; }
+        return to[Id]->latestPose;
+    }
+
     DLL_EXPORT void InitializeTrackerObject(int Id) {
         to[Id] = new TrackerObject(); 
         to[Id]->TrackerID = Id; 
@@ -144,7 +148,55 @@ extern "C" {
         }             
         else if (eventType == kUnityGfxDeviceEventShutdown) {  
         }                
-    }               
+    }           
+    //Newely Updated Code
+
+    DLL_EXPORT double* GetLatestTimestampPose(int iD) {
+        if (to.find(iD) == to.end()) { return nullptr; }
+        return to[iD]->GetLatestTimestampPose();
+    }
+
+    DLL_EXPORT void SetFilterEnabledExt(int iD, bool slam, bool velocity, bool accel, bool angvelocity, bool angaccel) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->SetFilterEnabledExt(slam, velocity, accel, angvelocity, angaccel);
+    }
+    DLL_EXPORT void SetKFilterEnabledExt(int iD, bool slam, bool velocity, bool accel, bool angvelocity, bool angaccel) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->SetKFilterEnabledExt(slam, velocity, accel, angvelocity, angaccel);
+    }
+
+    DLL_EXPORT void UpdateTransFilterDollaryDooParams(int iD, double _transfreq, double _transmincutoff, double _transbeta, double _transdcutoff,
+        double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
+        double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
+    ) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateTransFilterDollaryDooParams(_transfreq,  _transmincutoff,  _transbeta,  _transdcutoff, _velfreq,  _velmincutoff,  _velbeta,  _veldcutoff, _accelfreq,  _accelmincutoff,  _accelbeta,  _acceldcutoff);
+    }
+    DLL_EXPORT void UpdateRotFilterDollaryDooParams(int iD, double _rotfreq, double _rotmincutoff, double _rotbeta, double _rotdcutoff,
+        double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
+        double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
+    ) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateRotFilterDollaryDooParams(_rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff, _velfreq, _velmincutoff, _velbeta, _veldcutoff, _accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+    }
+
+    DLL_EXPORT void UpdateTransFilterKParams(int iD, double _transq, double _transr,
+        double _velq, double _velr,
+        double _accelq, double _accelr) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateTransFilterKParams(_transq, _transr, _velq, _velr, _accelq, _accelr);
+    }
+    DLL_EXPORT void UpdateRotFilterKParams(int iD, double _rotq, double _rotr,
+        double _angvelq, double _angvelr,
+        double _angaccelq, double _angaccelr
+    ) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->UpdateTransFilterKParams(_rotq, _rotr, _angvelq, _angvelr, _angaccelq, _angaccelr);
+    }
+
+    //old code
+
+
     DLL_EXPORT void UpdateFilterTranslationParams(int iD, double _freq, double _mincutoff, double _beta, double _dcutoff) {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->UpdateFilterTranslationParams(_freq, _mincutoff, _beta, _dcutoff); 
@@ -231,4 +283,4 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
  
 //Create a callback delegate    
  
-         
+          

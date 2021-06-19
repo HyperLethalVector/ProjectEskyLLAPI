@@ -31,16 +31,16 @@
 #include <opencv2/calib3d.hpp>
 #include <opencv2/imgproc.hpp>
 #ifdef __linux__
-    #include <LinuxSerialPort.hpp>
+#include <LinuxSerialPort.hpp>
     using namespace mn::CppLinuxSerial;
 #else
-    #include "Serial.h"
+#include "Serial.h"
 #endif
 #include <DollaryDooFilter.h>
 #include <KalmanFilter.h>
 #define PI 3.141592653
-typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info, 
-                                                    int lengthofarray, int width, int height, int pixelCount);
+typedef void(*FuncReceiveCameraImageCallbackWithID)(int instanceID, unsigned char* info,
+    int lengthofarray, int width, int height, int pixelCount);
 
 
 typedef void(*LocalizationCallback)(int trackerID, int LocalizationDelegate);
@@ -61,6 +61,22 @@ public:
     bool useKalmanFilterPose = false;
     KalmanFilterPose poseFilterK;
     OneDollaryDooFilterPose poseFilter;
+
+    KalmanFilterPose slamFilterK;
+    KalmanFilterPose velocityFilterK;
+    KalmanFilterPose accellerationFilterK;
+
+    KalmanFilterPose angularVelocityFilterK;
+    KalmanFilterPose angularAccellerationFilterK;
+
+    OneDollaryDooFilterPose slamFilterDollaryDoo;
+
+    OneDollaryDooFilterPose velocityFilterDollaryDoo;
+    OneDollaryDooFilterPose accellerationFilterDollaryDoo;
+
+    OneDollaryDooFilterPose angularVelocityFilterDollaryDoo;
+    OneDollaryDooFilterPose angularAccellerationFilterDoo;
+
     std::vector<SensorInfoCallback*> subscribedImageReceivers;
     rs2_intrinsics intrinsics;
     QuaternionCallback quaternionCallback = nullptr;
@@ -80,15 +96,32 @@ public:
     bool LockImage = false;
     bool LockPose = true;
 
-    float* latestPose = new float[7] {0, 0, 0, 0, 0, 0, 1};    
+    double lastProvidedPoseTimestampMS = 0;
+    double lastProvidedDeltaPoseTimestampMS = 0;
 
-    float* latestAccel = new float[3]{ 0, 0, 0};
+    double* latestDeltaPoseExternal = new double[7]{ 0,0,0,0,0,0,1 };
+    double* latestPoseExternal = new double[7]{ 0,0,0,0,0,0,1 };
+
+    double* latestTransExternal = new double[3]{ 0, 0, 0 };
+    double* latestAccelExternal = new double[3]{ 0, 0, 0 };
+    double* latestVeloExternal = new double[3]{ 0, 0, 0 };
+
+    double* latestRotExternal = new double[4]{ 0, 0, 0, 1 };
+    double* latestAngularAccelExternal = new double[3]{ 0, 0, 0 };
+    double* latestAngularVeloExternal = new double[3]{ 0, 0, 0 };
+
+
+
+    float* latestPose = new float[7]{ 0, 0, 0, 0, 0, 0, 1 };
+
+    float* latestAccel = new float[3]{ 0, 0, 0 };
     float* latestVelo = new float[3]{ 0, 0, 0 };
     float* latestTrans = new float[3]{ 0, 0, 0 };
 
     float* latestAngularAccel = new float[3]{ 0, 0, 0 };
     float* latestAngularVelo = new float[3]{ 0, 0, 0 };
-    float* latestRot = new float[4]{ 0, 0, 0, 1};
+    float* latestRot = new float[4]{ 0, 0, 0, 1 };
+
     double lastPoseTimeStamp = 0;
 
 
@@ -96,7 +129,7 @@ public:
     float* deltaPoseRightArray = new float[16]{ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
     float fx, fy, cx, cy, d1, d2, d3, d4, d5 = 0;
     glm::mat4 leftEyeTransform;
-    glm::mat4 rightEyeTransform;   
+    glm::mat4 rightEyeTransform;
     glm::mat4 PoseInitial;
     glm::mat4 PoseFinal;
 
@@ -118,27 +151,27 @@ public:
     float CurrentTimeOffset = 0;
 
     cv::Mat distCoeffsL;
-    cv::Mat intrinsicsL; 
+    cv::Mat intrinsicsL;
     bool hasReceivedCameraStream = false;
     char* com_port = "\\\\.\\COM5";
 #ifdef __linux__
 
 #else
     DWORD COM_BAUD_RATE = CBR_9600;
-    SimpleSerial* Serial; 
+    SimpleSerial* Serial;
 #endif
     // Create a configuration for configuring the pipeline with a non default profile
     std::vector<unsigned char> myMapData;
 
     bool receivedPoseFirst = false;
-    bool mapDataLoaded = false; 
+    bool mapDataLoaded = false;
     bool grabOriginPose = false;
     bool isFirst = true;
     bool ExitThreadLoop = false;
     bool usingFrame = false;
     bool shouldRestart = false;
-    bool shouldLoadMap = false; 
-    bool shouldGrabMap = false; 
+    bool shouldLoadMap = false;
+    bool shouldGrabMap = false;
     bool shouldUploadData = false;
     bool hasReceivedTexture = false;
     bool initializeWithPassthrough = false;
@@ -150,21 +183,21 @@ public:
     float tfreq, tmincutoff, tbeta, tdcutoff = 0;
     float qt, rt = 1.0;
     float qr, rr = 0.0;
-    void ConvMatrixToFloatArray(glm::mat4 src, float* target) { 
+    void ConvMatrixToFloatArray(glm::mat4 src, float* target) {
         for (int x = 0; x < 4; x++) {
-            for (int y = 0; y < 4; y++){
+            for (int y = 0; y < 4; y++) {
                 target[y * 4 + x] = src[x][y];
             }
         }
     }
     void FlagMapImport() {
-       shouldLoadMap = true;
+        shouldLoadMap = true;
     }
     void UpdateTimeOffset(float time) {
         CurrentTimeOffset = time;
     }
     void UpdateFilterTranslationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
-        tfreq = _freq; 
+        tfreq = _freq;
         tmincutoff = _mincutoff;
         tbeta = _beta;
         tdcutoff = _dcutoff;
@@ -185,23 +218,130 @@ public:
 
     void SetFilterEnabled(bool value) {
         filterEnabled = value;
-        poseFilter.SetFilterEnabled(value); 
+        poseFilter.SetFilterEnabled(value);
     }
     void SetKFilterEnabled(bool value) {
-        poseFilterK.SetFilterEnabled(value);
         kFilterEnabled = value;
+        poseFilterK.SetFilterEnabled(value);
+    }
+    void SetFilterEnabledExt(bool slam, bool velocity, bool accel, bool angvelocity, bool angaccel) {
+        slamFilterDollaryDoo.SetFilterEnabled(slam);
+        velocityFilterDollaryDoo.SetFilterEnabled(velocity);
+        accellerationFilterDollaryDoo.SetFilterEnabled(accel);
+        angularVelocityFilterDollaryDoo.SetFilterEnabled(angvelocity);
+        angularAccellerationFilterDoo.SetFilterEnabled(angaccel);
+    }
+    void SetKFilterEnabledExt(bool slam, bool velocity, bool accel, bool angvelocity, bool angaccel) {
+        slamFilterK.SetFilterEnabled(slam);
+        velocityFilterK.SetFilterEnabled(velocity);
+        accellerationFilterK.SetFilterEnabled(accel);
+        angularVelocityFilterK.SetFilterEnabled(angvelocity);
+        angularAccellerationFilterK.SetFilterEnabled(angaccel);
     }
     void ResetFilters() {
         poseFilter.Reset();
         poseFilterK.Reset();
     }
-    
+    void ResetFiltersExt() {
+        slamFilterK.Reset();
+        velocityFilterK.Reset();
+        accellerationFilterK.Reset();
+        angularVelocityFilterK.Reset();
+        angularAccellerationFilterK.Reset();
+    }
     void UpdateFilterRotationParams(double _freq, double _mincutoff, double _beta, double _dcutoff) {
         rfreq = _freq;
         rmincutoff = _mincutoff;
         rbeta = _beta;
         rdcutoff = _dcutoff;
         poseFilter.UpdateRotationParams(_freq, _mincutoff, _beta, _dcutoff);
+    }
+    void UpdateTransFilterDollaryDooParams(double _transfreq, double _transmincutoff, double _transbeta, double _transdcutoff,
+        double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
+        double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
+    ) {
+        slamFilterDollaryDoo.UpdateTranslationParams(_transfreq, _transmincutoff, _transbeta, _transdcutoff);
+        velocityFilterDollaryDoo.UpdateTranslationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
+        accellerationFilterDollaryDoo.UpdateTranslationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+    }
+    void UpdateRotFilterDollaryDooParams(double _rotfreq, double _rotmincutoff, double _rotbeta, double _rotdcutoff,
+        double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
+        double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
+    ) {
+        slamFilterDollaryDoo.UpdateRotationParams(_rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff);
+        velocityFilterDollaryDoo.UpdateRotationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
+        accellerationFilterDollaryDoo.UpdateRotationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+    }
+    void UpdateTransFilterKParams(double _transq, double _transr,
+        double _velq, double _velr,
+        double _accelq, double _accelr
+    ) {
+        slamFilterK.UpdateTranslationParams(_transq, _transr);
+        velocityFilterK.UpdateTranslationParams(_transq, _transr);
+        accellerationFilterK.UpdateTranslationParams(_transq, _transr);
+    }
+    void UpdateRotFilterKParams(double _rotq, double _rotr,
+        double _angvelq, double _angvelr,
+        double _angaccelq, double _angaccelr
+    ) {
+        slamFilterK.UpdateRotationParams(_rotq, _rotr);
+        angularVelocityFilterK.UpdateRotationParams(_angvelq, _angvelr);
+        angularAccellerationFilterK.UpdateRotationParams(_angaccelq, _angaccelr);
+    }
+
+    double* GetLatestTimestampPose() {//in theory, by extrapolating the sensor values we should get the pose at the lateset time stamp, can't be arsed translating this to the shared math library, will use intels for now
+        auto now = std::chrono::system_clock::now().time_since_epoch();
+        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+        rs2_pose pose;
+        rs2_pose predicted_pose;
+        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
+        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1]; pose.translation.z = latestTransExternal[2];
+        pose.rotation.x = latestRotExternal[0]; pose.rotation.y = latestRotExternal[1]; pose.rotation.z = latestRotExternal[2]; pose.rotation.w = latestRotExternal[3];
+
+        pose.acceleration.x = latestAccelExternal[0]; pose.acceleration.y = latestAccelExternal[1]; pose.acceleration.z = latestAccelExternal[2];
+        pose.velocity.x = latestVeloExternal[0]; pose.velocity.y = latestVeloExternal[1]; pose.velocity.z = latestVeloExternal[2];
+        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1];  pose.translation.z = latestTransExternal[2];
+        pose.angular_acceleration.x = latestAngularAccelExternal[0]; pose.angular_acceleration.y = latestAngularAccelExternal[1]; pose.angular_acceleration.z = latestAngularAccelExternal[2];
+        pose.angular_velocity.x = latestAngularVeloExternal[0]; pose.angular_velocity.y = latestAngularVeloExternal[1]; pose.angular_velocity.z = latestAngularVeloExternal[2];
+        predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
+        predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
+        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
+        rs2_vector W = {
+                dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
+                dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
+                dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
+        };
+        predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
+        latestPoseExternal[0] = predicted_pose.translation.x; latestPoseExternal[1] = predicted_pose.translation.y; latestPoseExternal[2] = predicted_pose.translation.z;
+        latestPoseExternal[3] = predicted_pose.rotation.x; latestPoseExternal[4] = predicted_pose.rotation.y; latestPoseExternal[5] = predicted_pose.rotation.z; latestPoseExternal[6] = predicted_pose.rotation.w;
+        return latestPoseExternal;
+    }
+    double* GetOffsetTimestampPose(double msOffset) {//in theory, by extrapolating the sensor values we should get the pose at the lateset time stamp, can't be arsed translating this to the shared math library, will use intels for now
+        auto now = std::chrono::system_clock::now().time_since_epoch();
+        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+        rs2_pose pose;
+        rs2_pose predicted_pose;
+        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + msOffset);
+        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1]; pose.translation.z = latestTransExternal[2];
+        pose.rotation.x = latestRotExternal[0]; pose.rotation.y = latestRotExternal[1]; pose.rotation.z = latestRotExternal[2]; pose.rotation.w = latestRotExternal[3];
+
+        pose.acceleration.x = latestAccelExternal[0]; pose.acceleration.y = latestAccelExternal[1]; pose.acceleration.z = latestAccelExternal[2];
+        pose.velocity.x = latestVeloExternal[0]; pose.velocity.y = latestVeloExternal[1]; pose.velocity.z = latestVeloExternal[2];
+        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1];  pose.translation.z = latestTransExternal[2];
+        pose.angular_acceleration.x = latestAngularAccelExternal[0]; pose.angular_acceleration.y = latestAngularAccelExternal[1]; pose.angular_acceleration.z = latestAngularAccelExternal[2];
+        pose.angular_velocity.x = latestAngularVeloExternal[0]; pose.angular_velocity.y = latestAngularVeloExternal[1]; pose.angular_velocity.z = latestAngularVeloExternal[2];
+        predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
+        predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
+        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
+        rs2_vector W = {
+                dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
+                dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
+                dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
+        };
+        predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
+        latestPoseExternal[0] = predicted_pose.translation.x; latestPoseExternal[1] = predicted_pose.translation.y; latestPoseExternal[2] = predicted_pose.translation.z;
+        latestPoseExternal[3] = predicted_pose.rotation.x; latestPoseExternal[4] = predicted_pose.rotation.y; latestPoseExternal[5] = predicted_pose.rotation.z; latestPoseExternal[6] = predicted_pose.rotation.w;
+        return latestPoseExternal;
     }
     void SetComPortString(int port) {
         switch (port) {
@@ -269,6 +409,7 @@ public:
     void FunctionHeadPosePredictor() {
         rs2_pose pose = rs2_pose();
         rs2_pose predicted_pose = pose;
+
         while (!ExitThreadLoop) {
             try {
                 if (useAsynchronousPredictor) {
@@ -291,6 +432,7 @@ public:
                         pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
                         pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
                         pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
+
 
 
                         predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
@@ -380,33 +522,36 @@ public:
             serialPort.Close();
 #else
             Serial = new SimpleSerial(com_port, COM_BAUD_RATE);
-            if (Serial->WriteSerialPort("r\r\n")) { 
-                Debug::Log("Restarted the t265/1",Color::Green);  
+            if (Serial->WriteSerialPort("r\r\n")) {
+                Debug::Log("Restarted the t265/1", Color::Green);
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-            } 
+            }
             Serial->CloseSerialPort();
 #endif
         }
+        double tempx, tempy, tempz = 0;
+        double tempw = 1;
         while (!ExitThreadLoop) {
-            try {         
+            try {
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilterK = KalmanFilterPose();
 
                 poseFilter.UpdateTranslationParams(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff);
-                poseFilter.SetFilterEnabled(filterEnabled); 
-                poseFilterK.SetDefault(qt, rt,qr,rr);
+                poseFilter.SetFilterEnabled(filterEnabled);
+                poseFilterK.SetDefault(qt, rt, qr, rr);
+
                 poseFilterK.SetFilterEnabled(filterEnabled);
 
 
                 hasReceivedCameraStream = false;
-                receivedPoseFirst = false; 
+                receivedPoseFirst = false;
                 rs2::pipeline pipe;
                 rs2::config cfg;
-                rs2::pipeline_profile myProf; 
+                rs2::pipeline_profile myProf;
                 std::vector<std::string> serials;
-                uint32_t dev_q; 
-                rs2::context ctx; 
+                uint32_t dev_q;
+                rs2::context ctx;
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
                 if (initializeWithPassthrough) {
                     cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 1);
@@ -417,10 +562,10 @@ public:
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
                         hasLocalized = true;
                         if (callbackLocalization != nullptr) {
-                            callbackLocalization(TrackerID,1); 
+                            callbackLocalization(TrackerID, 1);
                         }
                         else {
-                            Debug::Log("The callback doesn't exist, wtf?",Color::Red);
+                            Debug::Log("The callback doesn't exist, wtf?", Color::Red);
                         }
                     }
                     });
@@ -432,7 +577,7 @@ public:
                             ostringstream oss;
                             oss << "Map loaded from input data succesfully!" << std::endl;
                             Debug::Log(oss.str(), Color::Green);
-                        }  
+                        }
                         else {
                             ostringstream oss;
                             oss << "Issue loading the map??" << std::endl;
@@ -444,7 +589,7 @@ public:
                         oss << "Couldn't Load Map: " << e.what() << std::endl;
                         Debug::Log(oss.str(), Color::Red);
                     }
-                } 
+                }
                 double lastPoseTime_ms = 0.0;
 
                 double last_msps = 0;
@@ -454,77 +599,106 @@ public:
                     bool hasImage = false;
                     if (rs2::pose_frame fs = frame.as<rs2::pose_frame>()) {// For pose frames
                         hasPose = true;
-                        LockPose = true; 
+                        LockPose = true;
                         rs2_pose pose = fs.get_pose_data();
                         rs2_pose predicted_pose = pose;
-                        lastPoseTimeStamp = fs.get_timestamp(); 
-                        auto now = std::chrono::system_clock::now().time_since_epoch();
-                        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
-
+                        lastPoseTimeStamp = fs.get_timestamp();
                         latestAccel[0] = pose.acceleration.x; latestAccel[1] = pose.acceleration.y; latestAccel[2] = pose.acceleration.z;
                         latestVelo[0] = pose.velocity.x; latestVelo[1] = pose.velocity.y; latestVelo[2] = pose.velocity.z;
                         latestTrans[0] = pose.translation.x; latestTrans[1] = pose.translation.y; latestTrans[2] = pose.translation.z;
                         latestAngularAccel[0] = pose.angular_acceleration.x; latestAngularAccel[1] = pose.angular_acceleration.y; latestAngularAccel[2] = pose.angular_acceleration.z;
                         latestAngularVelo[0] = pose.angular_velocity.x; latestAngularVelo[1] = pose.angular_velocity.y; latestAngularVelo[2] = pose.angular_velocity.z;
                         latestRot[0] = pose.rotation.x; latestRot[1] = pose.rotation.y; latestRot[2] = pose.rotation.z; latestRot[3] = pose.rotation.w;
-                        receivedPoseFirst = true; 
+
+                        auto now = std::chrono::system_clock::now().time_since_epoch();
+                        double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+                        lastProvidedPoseTimestampMS = now_ms;
+
+                        receivedPoseFirst = true;
                         LockPose = false;
 
-                        if (!useAsynchronousPredictor) {
-                            float dt_p = static_cast<float>(max(0.0, (now_ms - last_msps) / 1000.0));
-                            float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
-                            pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
-                            pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
-                            pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
-                            pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
-                            pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
-                            pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
-                            predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
-                            predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
-                            predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
-                            rs2_vector W = {
-                                    dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
-                                    dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
-                                    dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
-                            }; 
-                            predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
-                            poseFilterK.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
-                            poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                            poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6], dt_p);
-                            poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                            //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
-                            if (resetInitialPose) {
-                                //                    Debug::Log("Reset the initial pose", Color::Green);
-                                resetInitialPose = false;
-                                PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                                PoseInitial[3][0] = latestPose[1];
-                                PoseInitial[3][1] = -latestPose[0];
-                                PoseInitial[3][2] = -latestPose[2];
-                            }
-                            PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                            PoseFinal[3][0] = latestPose[1];
-                            PoseFinal[3][1] = -latestPose[0];
-                            PoseFinal[3][2] = -latestPose[2];
-                            try {
-                                DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
-                                DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
-                                ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
-                                ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
-                                if (callbackDeltaPoseUpdate != nullptr) {
-                                    callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
-                                }
-                            }
-                            catch (std::exception e) {
-                                Debug::Log(e.what(), Color::Red);
-                            }
-                            now = std::chrono::system_clock::now().time_since_epoch();
-                            last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+                        float dt_p = static_cast<float>(max(0.0, (now_ms - last_msps) / 1000.0));
+                        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
+
+                        // The following does a per-segment filter on each part, exposing it via getlatestposetimestamp
+                        slamFilterK.Filter(pose.translation.x, pose.translation.y, pose.translation.z, pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+
+                        velocityFilterK.Filter(pose.velocity.x, pose.velocity.y, pose.velocity.z, 0, 0, 0, 1);
+                        accellerationFilterK.Filter(pose.acceleration.x, pose.acceleration.y, pose.acceleration.z, 0, 0, 0, 1);
+
+                        angularVelocityFilterK.Filter(pose.angular_velocity.x, pose.angular_velocity.y, pose.angular_velocity.z, 0, 0, 0, 1);
+                        angularAccellerationFilterK.Filter(pose.angular_acceleration.x, pose.angular_acceleration.y, pose.angular_acceleration.z, 0, 0, 0, 1);
+
+                        slamFilterK.ObtainFilteredPose(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3]);
+                        velocityFilterK.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
+                        accellerationFilterK.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
+                        angularVelocityFilterK.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
+                        angularAccellerationFilterK.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
+
+                        slamFilterDollaryDoo.Filter(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3], dt_s);
+                        velocityFilterDollaryDoo.Filter(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw, dt_s);
+                        accellerationFilterDollaryDoo.Filter(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw, dt_s);
+                        angularVelocityFilterDollaryDoo.Filter(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw, dt_s);
+                        angularAccellerationFilterDoo.Filter(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw, dt_s);
+
+                        slamFilterDollaryDoo.ObtainFilteredPose(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3]);
+                        velocityFilterDollaryDoo.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
+                        accellerationFilterDollaryDoo.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
+                        angularVelocityFilterDollaryDoo.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
+                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
+
+                        pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
+                        pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
+                        pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
+                        pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
+                        pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
+                        pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
+                        predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
+                        predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
+                        predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
+                        rs2_vector W = {
+                                dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
+                                dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
+                                dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
+                        };
+                        predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
+                        poseFilterK.Filter(predicted_pose.translation.x, predicted_pose.translation.y, -predicted_pose.translation.z, -predicted_pose.rotation.x, -predicted_pose.rotation.y, predicted_pose.rotation.z, predicted_pose.rotation.w);
+                        poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
+                        poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6], dt_p);
+                        poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
+                        //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
+                        if (resetInitialPose) {
+                            //                    Debug::Log("Reset the initial pose", Color::Green);
+                            resetInitialPose = false;
+                            PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                            PoseInitial[3][0] = latestPose[1];
+                            PoseInitial[3][1] = -latestPose[0];
+                            PoseInitial[3][2] = -latestPose[2];
                         }
-                    }  
+                        PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
+                        PoseFinal[3][0] = latestPose[1];
+                        PoseFinal[3][1] = -latestPose[0];
+                        PoseFinal[3][2] = -latestPose[2];
+                        try {
+                            DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
+                            DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
+                            ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
+                            ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
+                            if (callbackDeltaPoseUpdate != nullptr) {
+                                callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
+                            }
+                        }
+                        catch (std::exception e) {
+                            Debug::Log(e.what(), Color::Red);
+                        }
+                        now = std::chrono::system_clock::now().time_since_epoch();
+                        last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+                    }
+
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         hasImage = true;
                         if (receivedPoseFirst) {
-                                                        LockImage = true;
+                            LockImage = true;
                             rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);
                             const int w = video_frame.get_width();
                             const int h = video_frame.get_height();
@@ -538,8 +712,8 @@ public:
                                 cy = intrinsics.ppy;
                                 d1 = intrinsics.coeffs[0];
                                 d2 = intrinsics.coeffs[1];
-                                d3 = intrinsics.coeffs[2];  
-                                d4 = intrinsics.coeffs[3];                                
+                                d3 = intrinsics.coeffs[2];
+                                d4 = intrinsics.coeffs[3];
                                 intrinsicsL = (cv::Mat_<double>(3, 3) <<
                                     fx, 0, cx,
                                     0, fy, cy, 0, 0, 1);
@@ -556,7 +730,7 @@ public:
                                 }
                             }
                             fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
-                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA,4);
+                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA, 4);
                             if (!hasReceivedCameraStream) {
                                 fisheye_mat_color_undistort = fisheye_mat_color.clone();
                                 fisheye_mat_color_cpu = fisheye_mat_color.clone();
@@ -567,7 +741,7 @@ public:
                                 for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
                                     if ((*it) != nullptr) {
                                         if ((*it)->callbackWithID != nullptr) {
-                                           (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
+                                            (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
                                         }
                                     }
                                 }
@@ -583,25 +757,25 @@ public:
                                     double aspectRatio = 0;
                                     cv::Point2d myPrincipalPoint;
                                     cv::calibrationMatrixValues(intrinsicsL, cv::Size(w, h), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
-                                    textureInitializedCallback(TrackerID,w, h, 4, fx,fy,cx,cy, fovX, fovY, focalLength, d1,d2, d3, d4, 1);
+                                    textureInitializedCallback(TrackerID, w, h, 4, fx, fy, cx, cy, fovX, fovY, focalLength, d1, d2, d3, d4, 1);
                                 }
                                 hasReceivedCameraStream = true;
                             }
                             LockImage = false;
                         }
 
-                    } 
+                    }
                     if (hasPose && hasImage) {
                         Debug::Log("Has Both Pose and Image");
                     }
-                    });                
+                    });
                 shouldRestart = false;
                 while (!shouldRestart && !ExitThreadLoop) {
                     if (grabOriginPose) {
                         grabOriginPose = false;
                         if (tm_sensor.get_static_node("bugorigin", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
                             if (callbackObjectPoseReceived != nullptr) {
-                                callbackObjectPoseReceived(TrackerID,"origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
+                                callbackObjectPoseReceived(TrackerID, "origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
                             }
                         }
                     }
@@ -609,7 +783,7 @@ public:
 
                     //Do we need to grab the current local map?
                     if (shouldGrabMap) {
-                        shouldGrabMap = false;    
+                        shouldGrabMap = false;
                         rs2_pose p;
                         p.translation.x = 0;
                         p.translation.y = 0;
@@ -660,7 +834,7 @@ public:
                 }
                 if (usesIntegrator) {
 #ifdef __linux__
-                    SerialPort serialPort(com_port, BaudRate::B_9600); 
+                    SerialPort serialPort(com_port, BaudRate::B_9600);
                     serialPort.SetTimeout(-1); // Block when reading until any data is received
                     serialPort.Open();
                     serialPort.Write("r\r\n");
@@ -674,7 +848,7 @@ public:
                     Serial->CloseSerialPort();
 #endif 
                 }
-                pipe.stop(); 
+                pipe.stop();
                 if (ExitThreadLoop) {
                     break;
                 }
@@ -700,7 +874,7 @@ public:
             Serial->CloseSerialPort();
         }
 #endif
-        Debug::Log("Closed Tracker!",Color::Green);   
+        Debug::Log("Closed Tracker!", Color::Green);
     }
     void ResetInitialPose() {
         resetInitialPose = true;
@@ -761,11 +935,11 @@ public:
         }
         file.write((char*)bytes.data(), bytes.size());
     }
-    void UpdatecameraTextureGPU() { 
+    void UpdatecameraTextureGPU() {
 #ifdef __linux__ //OGL 
 
 #else 
-         
+
         if (!LockImage) {
             if (m_Device != nullptr) {
                 if (hasReceivedTexture) {
@@ -778,7 +952,7 @@ public:
                         ctx->Release();
                     }
                 }
-            } 
+            }
         }
 #endif
     }
@@ -812,13 +986,13 @@ public:
         c->callbackWithID = callback;
         subscribedImageReceivers.push_back(c);
     }
-    void SetLeftRightEyeTransforms(float* leftEyeTransform, float* rightEyeTransform) { 
+    void SetLeftRightEyeTransforms(float* leftEyeTransform, float* rightEyeTransform) {
         Debug::Log("Set my left and right eye transforms from origin", Color::Green);
         this->leftEyeTransform = {
             {leftEyeTransform[0],leftEyeTransform[1],leftEyeTransform[2],leftEyeTransform[3]},
             {leftEyeTransform[4],leftEyeTransform[5],leftEyeTransform[6],leftEyeTransform[7]},
             {leftEyeTransform[8],leftEyeTransform[9],leftEyeTransform[10],leftEyeTransform[11]},
-            {leftEyeTransform[12],leftEyeTransform[13],leftEyeTransform[14],leftEyeTransform[15]}, 
+            {leftEyeTransform[12],leftEyeTransform[13],leftEyeTransform[14],leftEyeTransform[15]},
         };
         this->rightEyeTransform = {
             {rightEyeTransform[0],rightEyeTransform[1],rightEyeTransform[2],rightEyeTransform[3]},
@@ -826,9 +1000,9 @@ public:
             {rightEyeTransform[8],rightEyeTransform[9],rightEyeTransform[10],rightEyeTransform[11]},
             {rightEyeTransform[12],rightEyeTransform[13],rightEyeTransform[14],rightEyeTransform[15]},
         };
-        this->rightEyeTransform = transpose(this->rightEyeTransform); 
+        this->rightEyeTransform = transpose(this->rightEyeTransform);
         this->leftEyeTransform = transpose(this->leftEyeTransform);
-        Debug::Log("Finished setting transforms", Color::Green); 
+        Debug::Log("Finished setting transforms", Color::Green);
     }
 
 };
