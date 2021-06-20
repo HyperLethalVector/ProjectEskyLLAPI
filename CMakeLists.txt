@@ -85,14 +85,30 @@ include_directories(./include/)
 if(WIN32)
 add_library(libProjectEskyLLAPIIntel SHARED 
 ./src/Tracker/IntelT265/main.cpp  
-./src/Tracker/IntelT265/Tracker.cpp 
+./src/Tracker/IntelT265/Tracker.h 
 ./src/Tracker/IntelT265/Serial.cpp  
+./include/SharedMath.h
 ./include/DollaryDooFilter.h
 ./include/KalmanFilter.h
 ./include/Filter.h
 ./include/Serial.h)
 set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
 target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
+
+add_executable(ExecProjectEskyLLAPIIntel
+./src/Tracker/IntelT265/main.cpp  
+./src/Tracker/IntelT265/Tracker.h 
+./src/Tracker/IntelT265/Serial.cpp  
+./include/SharedMath.h
+./include/DollaryDooFilter.h
+./include/KalmanFilter.h
+./include/Filter.h
+./include/Serial.h)
+set_target_properties(ExecProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+target_link_libraries(ExecProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
+
+
+
 #ZED
 add_library(libProjectEskyLLAPIZED SHARED 
 ./src/Tracker/ZED/main.cpp 

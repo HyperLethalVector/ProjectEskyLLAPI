@@ -306,7 +306,7 @@ int main(int argc, char** argv)
     bool writeExtrinsics = false, writePoints = false;
     bool undistortImage = false;
     int flags = 0;
-    int cameraId = 1;
+    int cameraId = 3;
 
     bool flipVertical = false;
     bool showUndistorted = false;
