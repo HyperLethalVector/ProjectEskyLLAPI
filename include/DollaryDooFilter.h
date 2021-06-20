@@ -191,6 +191,19 @@ class OneDollaryDooFilterPose : PoseFilter {
 				filteredEuler.z = unfilteredEuler.z;
 			}
 		}
+		void Filter(double xt, double yt, double zt, float timestamp = -1.0) {
+
+			if (useFilter) {
+				filteredTranslation.x = xPosFilter.filter(xt, timestamp);
+				filteredTranslation.y = yPosFilter.filter(yt, timestamp);
+				filteredTranslation.z = zPosFilter.filter(zt, timestamp);
+			}
+			else {
+				filteredTranslation.x = xt;
+				filteredTranslation.y = yt;
+				filteredTranslation.z = zt;
+			}
+		}
 		void ObtainFilteredPose(float &xt, float &yt, float &zt, float &xr, float &yr, float &zr, float &wr) {
 			EulerToQuat(filteredEuler, filteredQuaternion);
 			xt = filteredTranslation.x;
@@ -210,6 +223,11 @@ class OneDollaryDooFilterPose : PoseFilter {
 			yr = filteredQuaternion.y;
 			zr = filteredQuaternion.z;
 			wr = filteredQuaternion.w;
+		}
+		void ObtainFilteredPose(double& xt, double& yt, double& zt) {
+			xt = filteredTranslation.x;
+			yt = filteredTranslation.y;
+			zt = filteredTranslation.z;
 		}
 		void Reset() {
 			xPosFilter = OneDollaryDooFilter(tfreq, tmincutoff, tbeta, tdcutoff);

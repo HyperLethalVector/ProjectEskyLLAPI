@@ -59,6 +59,17 @@ class TrackerObject {
 public:
     TrackerObject() {
         Debug::Log("Setting Tracker ID");
+        poseFilterK = KalmanFilterPose();
+        slamFilterK = KalmanFilterPose();
+        velocityFilterK = KalmanFilterPose();
+        accellerationFilterK = KalmanFilterPose();
+        angularVelocityFilterK = KalmanFilterPose();
+        angularAccellerationFilterK = KalmanFilterPose();
+        slamFilterDollaryDoo = OneDollaryDooFilterPose(200);
+        velocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
+        accellerationFilterDollaryDoo = OneDollaryDooFilterPose(200);
+        angularVelocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
+        angularAccellerationFilterDoo = OneDollaryDooFilterPose(200);
     }
     bool useKalmanFilterPose = false;
 
@@ -308,15 +319,30 @@ public:
         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
         rs2_pose pose;
         rs2_pose predicted_pose;
-        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
-        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1]; pose.translation.z = latestTransExternal[2];
-        pose.rotation.x = latestRotExternal[0]; pose.rotation.y = latestRotExternal[1]; pose.rotation.z = latestRotExternal[2]; pose.rotation.w = latestRotExternal[3];
+        float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0));
 
-        pose.acceleration.x = latestAccelExternal[0]; pose.acceleration.y = latestAccelExternal[1]; pose.acceleration.z = latestAccelExternal[2];
-        pose.velocity.x = latestVeloExternal[0]; pose.velocity.y = latestVeloExternal[1]; pose.velocity.z = latestVeloExternal[2];
-        pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1];  pose.translation.z = latestTransExternal[2];
-        pose.angular_acceleration.x = latestAngularAccelExternal[0]; pose.angular_acceleration.y = latestAngularAccelExternal[1]; pose.angular_acceleration.z = latestAngularAccelExternal[2];
-        pose.angular_velocity.x = latestAngularVeloExternal[0]; pose.angular_velocity.y = latestAngularVeloExternal[1]; pose.angular_velocity.z = latestAngularVeloExternal[2];
+        pose.translation.x = latestTransExternal[0]; 
+        pose.translation.y = latestTransExternal[1]; 
+        pose.translation.z = latestTransExternal[2];
+        pose.rotation.x = latestRotExternal[0]; 
+        pose.rotation.y = latestRotExternal[1]; 
+        pose.rotation.z = latestRotExternal[2]; 
+        pose.rotation.w = latestRotExternal[3];
+
+        pose.acceleration.x = latestAccelExternal[0]; 
+        pose.acceleration.y = latestAccelExternal[1]; 
+        pose.acceleration.z = latestAccelExternal[2];
+        pose.velocity.x = latestVeloExternal[0]; 
+        pose.velocity.y = latestVeloExternal[1]; 
+        pose.velocity.z = latestVeloExternal[2];
+        
+        pose.angular_acceleration.x = latestAngularAccelExternal[0]; 
+        pose.angular_acceleration.y = latestAngularAccelExternal[1]; 
+        pose.angular_acceleration.z = latestAngularAccelExternal[2];
+        pose.angular_velocity.x = latestAngularVeloExternal[0]; 
+        pose.angular_velocity.y = latestAngularVeloExternal[1]; 
+        pose.angular_velocity.z = latestAngularVeloExternal[2];
+        
         predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
         predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
         predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;
@@ -336,6 +362,7 @@ public:
         rs2_pose pose;
         rs2_pose predicted_pose;
         float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + msOffset);
+
         pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1]; pose.translation.z = latestTransExternal[2];
         pose.rotation.x = latestRotExternal[0]; pose.rotation.y = latestRotExternal[1]; pose.rotation.z = latestRotExternal[2]; pose.rotation.w = latestRotExternal[3];
 
@@ -443,20 +470,7 @@ public:
             try {
                 Debug::Log("Starting Thread", Color::Green);
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
-                poseFilterK = KalmanFilterPose();
-
-                slamFilterK = KalmanFilterPose();
-                velocityFilterK = KalmanFilterPose();
-                accellerationFilterK = KalmanFilterPose();
-                angularVelocityFilterK = KalmanFilterPose();
-                angularAccellerationFilterK = KalmanFilterPose();
-
-                slamFilterDollaryDoo = OneDollaryDooFilterPose(200);
-
-                velocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
-                accellerationFilterDollaryDoo = OneDollaryDooFilterPose(200);
-                angularVelocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
-                angularAccellerationFilterDoo = OneDollaryDooFilterPose(200);
+                
 
                 poseFilter.UpdateTranslationParams(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff);
@@ -525,12 +539,16 @@ public:
                         rs2_pose pose = fs.get_pose_data();
                         rs2_pose predicted_pose = pose;
                         lastPoseTimeStamp = fs.get_timestamp();
+
+                        latestTrans[0] = pose.translation.x; latestTrans[1] = pose.translation.y; latestTrans[2] = pose.translation.z;
+                        latestRot[0] = pose.rotation.x; latestRot[1] = pose.rotation.y; latestRot[2] = pose.rotation.z; latestRot[3] = pose.rotation.w;
+
                         latestAccel[0] = pose.acceleration.x; latestAccel[1] = pose.acceleration.y; latestAccel[2] = pose.acceleration.z;
                         latestVelo[0] = pose.velocity.x; latestVelo[1] = pose.velocity.y; latestVelo[2] = pose.velocity.z;
-                        latestTrans[0] = pose.translation.x; latestTrans[1] = pose.translation.y; latestTrans[2] = pose.translation.z;
+
+
                         latestAngularAccel[0] = pose.angular_acceleration.x; latestAngularAccel[1] = pose.angular_acceleration.y; latestAngularAccel[2] = pose.angular_acceleration.z;
-                        latestAngularVelo[0] = pose.angular_velocity.x; latestAngularVelo[1] = pose.angular_velocity.y; latestAngularVelo[2] = pose.angular_velocity.z;
-                        latestRot[0] = pose.rotation.x; latestRot[1] = pose.rotation.y; latestRot[2] = pose.rotation.z; latestRot[3] = pose.rotation.w;
+                        latestAngularVelo[0] = pose.angular_velocity.x; latestAngularVelo[1] = pose.angular_velocity.y; latestAngularVelo[2] = pose.angular_velocity.z;                        
 
                         auto now = std::chrono::system_clock::now().time_since_epoch();
                         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
@@ -544,38 +562,40 @@ public:
 
                         // The following does a per-segment filter on each part, exposing it via getlatestposetimestamp
                         /**/
-                        slamFilterK.Filter(pose.translation.x, pose.translation.y, pose.translation.z, pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
-
-                        velocityFilterK.Filter(pose.velocity.x, pose.velocity.y, pose.velocity.z, 0, 0, 0, 1);
-                        accellerationFilterK.Filter(pose.acceleration.x, pose.acceleration.y, pose.acceleration.z, 0, 0, 0, 1);
-
-                        angularVelocityFilterK.Filter(pose.angular_velocity.x, pose.angular_velocity.y, pose.angular_velocity.z, 0, 0, 0, 1);
-                        angularAccellerationFilterK.Filter(pose.angular_acceleration.x, pose.angular_acceleration.y, pose.angular_acceleration.z, 0, 0, 0, 1);
+                        slamFilterK.Filter(latestTrans[0], latestTrans[1], latestTrans[2], latestRot[0], latestRot[1], latestRot[2], latestRot[3]);
+                        velocityFilterK.Filter(latestVelo[0], latestVelo[1], latestVelo[2]);
+                        accellerationFilterK.Filter(latestAccel[0], latestAccel[1], latestAccel[2]);
+                        angularVelocityFilterK.Filter(latestAngularAccel[0], latestAngularAccel[1], latestAngularAccel[2]);
+                        angularAccellerationFilterK.Filter(latestAngularVelo[0], latestAngularVelo[1], latestAngularVelo[2]);
 
                         slamFilterK.ObtainFilteredPose(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3]);
-                        velocityFilterK.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
-                        accellerationFilterK.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
-                        angularVelocityFilterK.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
-                        angularAccellerationFilterK.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
+                        velocityFilterK.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2]);
+                        accellerationFilterK.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2]);
+                        angularVelocityFilterK.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2]);
+                        angularAccellerationFilterK.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2]);
 
                         slamFilterDollaryDoo.Filter(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3], dt_s);
-                        velocityFilterDollaryDoo.Filter(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw, dt_s);
-                        accellerationFilterDollaryDoo.Filter(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw, dt_s);
-                        angularVelocityFilterDollaryDoo.Filter(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw, dt_s);
-                        angularAccellerationFilterDoo.Filter(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw, dt_s);
+                        velocityFilterDollaryDoo.Filter(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], dt_s);
+                        accellerationFilterDollaryDoo.Filter(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], dt_s);
+                        angularVelocityFilterDollaryDoo.Filter(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], dt_s);
+                        angularAccellerationFilterDoo.Filter(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], dt_s);
 
                         slamFilterDollaryDoo.ObtainFilteredPose(latestTransExternal[0], latestTransExternal[1], latestTransExternal[2], latestRotExternal[0], latestRotExternal[1], latestRotExternal[2], latestRotExternal[3]);
-                        velocityFilterDollaryDoo.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
-                        accellerationFilterDollaryDoo.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
-                        angularVelocityFilterDollaryDoo.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
-                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
+                        velocityFilterDollaryDoo.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2]);
+                        accellerationFilterDollaryDoo.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2]);
+                        angularVelocityFilterDollaryDoo.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2]);
+                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2]);
+
+
+                        pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
+                        pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
 
                         pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
                         pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
-                        pose.translation.x = latestTrans[0]; pose.translation.y = latestTrans[1];  pose.translation.z = latestTrans[2];
+
                         pose.angular_acceleration.x = latestAngularAccel[0]; pose.angular_acceleration.y = latestAngularAccel[1]; pose.angular_acceleration.z = latestAngularAccel[2];
                         pose.angular_velocity.x = latestAngularVelo[0]; pose.angular_velocity.y = latestAngularVelo[1]; pose.angular_velocity.z = latestAngularVelo[2];
-                        pose.rotation.x = latestRot[0]; pose.rotation.y = latestRot[1]; pose.rotation.z = latestRot[2]; pose.rotation.w = latestRot[3];
+
                         predicted_pose.translation.x = dt_s * (dt_s / 2 * pose.acceleration.x + pose.velocity.x) + pose.translation.x;
                         predicted_pose.translation.y = dt_s * (dt_s / 2 * pose.acceleration.y + pose.velocity.y) + pose.translation.y;
                         predicted_pose.translation.z = dt_s * (dt_s / 2 * pose.acceleration.z + pose.velocity.z) + pose.translation.z;

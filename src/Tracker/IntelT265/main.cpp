@@ -13,7 +13,7 @@
 #include <iomanip>      
 #include <chrono>      
 #include <thread> 
-#include <mutex> 
+#include <mutex>  
 #include <math.h>     
 #include <float.h>   
 #include "Tracker.h"   
@@ -58,11 +58,11 @@ extern "C" {
     }  
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
-        to[i]->DoFunctionTracking();       
+        to[i]->DoFunctionTracking();        
    //     delete to[i];    
  //       to[i] = nullptr;    
     } 
-    void PredictorBackgroundThread(int i) {
+    void PredictorBackgroundThread(int i) { 
         if (to.find(i) == to.end()) { return; }
         return;
     }
@@ -73,7 +73,7 @@ extern "C" {
         trackerThread[Id] = new std::thread(TrackerBackgroundThread,Id); 
     } 
     DLL_EXPORT float* GetLatestPose(int Id) {      
-        if (to.find(Id) == to.end()) { return nullptr; } 
+        if (to.find(Id) == to.end()) { return nullptr; }  
        return to[Id]->latestPose;  
     }   
     DLL_EXPORT float* GetTimestampedPose(int Id) {
@@ -84,16 +84,16 @@ extern "C" {
     DLL_EXPORT void InitializeTrackerObject(int Id) {
         Debug::Log("Initializing Tracker Object");
         to[Id] = new TrackerObject();
-        Debug::Log("Done Initializing Tracker Object");
+        Debug::Log("Done Initializing Tracker Object"); 
         to[Id]->TrackerID = Id; 
         Debug::Log("Done Initializing Tracker Object");
     }
     DLL_EXPORT void ObtainMap(int Id) { 
         if (to.find(Id) == to.end()) { return; } 
-        if (to.count(Id)) {
+        if (to.count(Id)) { 
             to[Id]->GrabMap();
-        }
-    } 
+        } 
+    }  
     DLL_EXPORT void FlagMapImport(int Id) {
         if (to.find(Id) == to.end()) { return; }
        to[Id]->FlagMapImport();
@@ -122,7 +122,7 @@ extern "C" {
                 s_Graphics->RegisterDeviceEventCallback(OnGraphicsDeviceEvent);
                 OnGraphicsDeviceEvent(kUnityGfxDeviceEventInitialize); 
             }  
-        }
+        } 
     }   
        
     extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload() 
@@ -152,7 +152,7 @@ extern "C" {
     }           
     //Newely Updated Code
 
-    DLL_EXPORT double* GetLatestTimestampPose(int iD) {
+    DLL_EXPORT double* GetLatestTimestampPose(int iD) { 
         if (to.find(iD) == to.end()) { return nullptr; }
         return to[iD]->GetLatestTimestampPose();
     }
@@ -192,7 +192,7 @@ extern "C" {
         double _angaccelq, double _angaccelr
     ) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->UpdateTransFilterKParams(_rotq, _rotr, _angvelq, _angvelr, _angaccelq, _angaccelr);
+        to[iD]->UpdateRotFilterKParams(_rotq, _rotr, _angvelq, _angvelr, _angaccelq, _angaccelr);
     }
 
     //old code
@@ -257,7 +257,7 @@ extern "C" {
     }          
     DLL_EXPORT void SetSerialComPort(int iD, int port) { 
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->usesIntegrator = true;  
+        to[iD]->usesIntegrator = true;   
         to[iD]->SetComPortString(port); 
     }        
     DLL_EXPORT void SetRenderTexturePointer(int iD, void* textureHandle) {
