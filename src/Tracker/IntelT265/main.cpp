@@ -139,7 +139,7 @@ extern "C" {
         // Create graphics API implementation upon initialization 
         if (eventType == kUnityGfxDeviceEventInitialize)   
         {         
-#ifdef __linux       
+#ifdef __linux        
 #else    
             IUnityGraphicsD3D11* d3d = s_UnityInterfaces->Get<IUnityGraphicsD3D11>();
             if (d3d != nullptr) {  
@@ -150,7 +150,7 @@ extern "C" {
         else if (eventType == kUnityGfxDeviceEventShutdown) {   
         }                
     }           
-    //Newely Updated Code
+    //Newely Updated Code 
 
     DLL_EXPORT double* GetLatestTimestampPose(int iD) { 
         if (to.find(iD) == to.end()) { return nullptr; }
@@ -165,20 +165,28 @@ extern "C" {
         if (to.find(iD) == to.end()) { return; }
         to[iD]->SetKFilterEnabledExt(slam, velocity, accel, angvelocity, angaccel);
     }
-
+    DLL_EXPORT void UseNewTrackingSystemForParams(int iD) {
+        if (to.find(iD) == to.end()) { return; }
+        to[iD]->trackingSystem = 1;
+    }
     DLL_EXPORT void UpdateTransFilterDollaryDooParams(int iD, double _transfreq, double _transmincutoff, double _transbeta, double _transdcutoff,
         double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
         double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
     ) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->UpdateTransFilterDollaryDooParams(_transfreq,  _transmincutoff,  _transbeta,  _transdcutoff, _velfreq,  _velmincutoff,  _velbeta,  _veldcutoff, _accelfreq,  _accelmincutoff,  _accelbeta,  _acceldcutoff);
+        to[iD]->UpdateTransFilterDollaryDooParams(_transfreq,  _transmincutoff,  _transbeta,  _transdcutoff, 
+            _velfreq,  _velmincutoff,  _velbeta,  _veldcutoff, 
+            _accelfreq,  _accelmincutoff,  _accelbeta,  _acceldcutoff);
     }
     DLL_EXPORT void UpdateRotFilterDollaryDooParams(int iD, double _rotfreq, double _rotmincutoff, double _rotbeta, double _rotdcutoff,
         double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
         double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
     ) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->UpdateRotFilterDollaryDooParams(_rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff, _velfreq, _velmincutoff, _velbeta, _veldcutoff, _accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
+        to[iD]->UpdateRotFilterDollaryDooParams(
+            _rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff, 
+            _velfreq, _velmincutoff, _velbeta, _veldcutoff, 
+            _accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
     }
 
     DLL_EXPORT void UpdateTransFilterKParams(int iD, double _transq, double _transr,
