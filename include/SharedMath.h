@@ -7,12 +7,14 @@
 #include <map>
 #include <set>
 #pragma once
-struct Vector3 {
+class Vector3 {
+public:
 	float x = 0;
 	float y = 0;
 	float z = 0;
 };
-struct Quaternion {
+class Quaternion {
+public:
 	float x = 0;
 	float y = 0;
 	float z = 0;

@@ -14,7 +14,7 @@
 #include <chrono>      
 #include <thread> 
 #include <mutex> 
-#include <math.h>    
+#include <math.h>     
 #include <float.h>   
 #include "Tracker.h"   
 #ifdef __linux__ 
@@ -51,12 +51,11 @@ extern "C" {
     }        
     DLL_EXPORT void UseAsyncHeadPosePredictor(int iD, bool val) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->useAsynchronousPredictor = val;
     } 
     DLL_EXPORT void SetTimeOffset(int Id, float value) {
         if (to.find(Id) == to.end()) { return; }
         to[Id]->UpdateTimeOffset(value);
-    }
+    }  
     void TrackerBackgroundThread(int i) {     
         if (to.find(i) == to.end()) { return; }
         to[i]->DoFunctionTracking();       
@@ -72,7 +71,6 @@ extern "C" {
         Debug::Log("Started Tracking Thread");  
         to[Id]->ExitThreadLoop = false;    
         trackerThread[Id] = new std::thread(TrackerBackgroundThread,Id); 
-        asyncPredictor[Id] = new std::thread(PredictorBackgroundThread, Id);
     } 
     DLL_EXPORT float* GetLatestPose(int Id) {      
         if (to.find(Id) == to.end()) { return nullptr; } 
@@ -81,11 +79,14 @@ extern "C" {
     DLL_EXPORT float* GetTimestampedPose(int Id) {
         if (to.find(Id) == to.end()) { return nullptr; }
         return to[Id]->latestPose;
-    }
+    } 
 
     DLL_EXPORT void InitializeTrackerObject(int Id) {
-        to[Id] = new TrackerObject(); 
+        Debug::Log("Initializing Tracker Object");
+        to[Id] = new TrackerObject();
+        Debug::Log("Done Initializing Tracker Object");
         to[Id]->TrackerID = Id; 
+        Debug::Log("Done Initializing Tracker Object");
     }
     DLL_EXPORT void ObtainMap(int Id) { 
         if (to.find(Id) == to.end()) { return; } 
@@ -133,7 +134,7 @@ extern "C" {
     DLL_EXPORT void SetTextureInitializedCallback(int iD, FuncTextureInitializedCallback myCallback) {
         to[iD]->textureInitializedCallback = myCallback;    
     }  
-    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) 
+    static void UNITY_INTERFACE_API OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType)  
     {
         // Create graphics API implementation upon initialization 
         if (eventType == kUnityGfxDeviceEventInitialize)   
@@ -146,7 +147,7 @@ extern "C" {
             } 
 #endif          
         }             
-        else if (eventType == kUnityGfxDeviceEventShutdown) {  
+        else if (eventType == kUnityGfxDeviceEventShutdown) {   
         }                
     }           
     //Newely Updated Code
@@ -249,8 +250,10 @@ extern "C" {
         to[iD]->callbackObjectPoseReceived = cb; 
     }  
     DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
+        Debug::Log("Registering binary map callback");
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackBinaryMap = cb; 
+        Debug::Log("Done registering binary map");
     }          
     DLL_EXPORT void SetSerialComPort(int iD, int port) { 
         if (to.find(iD) == to.end()) { return; }
@@ -279,7 +282,9 @@ extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRen
 { 
     return OnRenderEvent;
 }     
- 
+int main(int argc, char** argv) {
+    InitializeTrackerObject(0);
+}
  
 //Create a callback delegate    
  

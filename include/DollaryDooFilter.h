@@ -40,7 +40,7 @@ public:
 		return y;
 	}
 	LowPassFilter() {
-
+		LowPassFilter(0.0);
 	}
 private:
 	double y, a, s;
@@ -124,7 +124,7 @@ class OneDollaryDooFilterPose : PoseFilter {
 		double rdcutoff;
 
 		OneDollaryDooFilterPose() {
-			 
+			OneDollaryDooFilterPose(200);
 		}
 		OneDollaryDooFilterPose(double _freq, double _mincutoff = 1.0, double _beta = 0.0, double _dcutoff = 0.0) {
 			tfreq = _freq;

@@ -57,8 +57,12 @@ public:
 };
 class TrackerObject {
 public:
-    bool useAsynchronousPredictor;
+    TrackerObject() {
+        Debug::Log("Setting Tracker ID");
+    }
     bool useKalmanFilterPose = false;
+
+
     KalmanFilterPose poseFilterK;
     OneDollaryDooFilterPose poseFilter;
 
@@ -141,7 +145,6 @@ public:
     cv::Mat fisheye_mat_color_cpu;
     cv::Mat lm1, lm2;
 
-    rs2_pose object_in_world_pose_frame;
     bool hasLocalized = false;
     unsigned char* fileLocation;
     int textureWidth = 0;
@@ -175,8 +178,7 @@ public:
     bool shouldUploadData = false;
     bool hasReceivedTexture = false;
     bool initializeWithPassthrough = false;
-    rs2::context myCon;
-    rs2::device myDev;
+
     bool filterEnabled = true;
     bool kFilterEnabled = true;
     float rfreq, rmincutoff, rbeta, rdcutoff = 0;
@@ -270,7 +272,7 @@ public:
     void UpdateRotFilterDollaryDooParams(double _rotfreq, double _rotmincutoff, double _rotbeta, double _rotdcutoff,
         double _velfreq, double _velmincutoff, double _velbeta, double _veldcutoff,
         double _accelfreq, double _accelmincutoff, double _accelbeta, double _acceldcutoff
-    ) {
+    ) { 
         slamFilterDollaryDoo.UpdateRotationParams(_rotfreq, _rotmincutoff, _rotbeta, _rotdcutoff);
         angularVelocityFilterDollaryDoo.UpdateTranslationParams(_velfreq, _velmincutoff, _velbeta, _veldcutoff);
         angularAccellerationFilterDoo.UpdateTranslationParams(_accelfreq, _accelmincutoff, _accelbeta, _acceldcutoff);
@@ -302,7 +304,7 @@ public:
     }
 
     double* GetLatestTimestampPose() {//in theory, by extrapolating the sensor values we should get the pose at the lateset time stamp, can't be arsed translating this to the shared math library, will use intels for now
-        auto now = std::chrono::system_clock::now().time_since_epoch();
+        auto now = std::chrono::system_clock::now().time_since_epoch(); 
         double now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
         rs2_pose pose;
         rs2_pose predicted_pose;
@@ -443,6 +445,19 @@ public:
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilterK = KalmanFilterPose();
 
+                slamFilterK = KalmanFilterPose();
+                velocityFilterK = KalmanFilterPose();
+                accellerationFilterK = KalmanFilterPose();
+                angularVelocityFilterK = KalmanFilterPose();
+                angularAccellerationFilterK = KalmanFilterPose();
+
+                slamFilterDollaryDoo = OneDollaryDooFilterPose(200);
+
+                velocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
+                accellerationFilterDollaryDoo = OneDollaryDooFilterPose(200);
+                angularVelocityFilterDollaryDoo = OneDollaryDooFilterPose(200);
+                angularAccellerationFilterDoo = OneDollaryDooFilterPose(200);
+
                 poseFilter.UpdateTranslationParams(tfreq, tmincutoff, tbeta, tdcutoff);
                 poseFilter.UpdateRotationParams(rfreq, rmincutoff, rbeta, rdcutoff);
                 poseFilter.SetFilterEnabled(filterEnabled);
@@ -528,7 +543,7 @@ public:
                         float dt_s = static_cast<float>(max(0.0, (now_ms - lastPoseTimeStamp) / 1000.0) + CurrentTimeOffset);
 
                         // The following does a per-segment filter on each part, exposing it via getlatestposetimestamp
-                        /*
+                        /**/
                         slamFilterK.Filter(pose.translation.x, pose.translation.y, pose.translation.z, pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
 
                         velocityFilterK.Filter(pose.velocity.x, pose.velocity.y, pose.velocity.z, 0, 0, 0, 1);
@@ -553,7 +568,7 @@ public:
                         velocityFilterDollaryDoo.ObtainFilteredPose(latestVeloExternal[0], latestVeloExternal[1], latestVeloExternal[2], tempx, tempy, tempz, tempw);
                         accellerationFilterDollaryDoo.ObtainFilteredPose(latestAccelExternal[0], latestAccelExternal[1], latestAccelExternal[2], tempx, tempy, tempz, tempw);
                         angularVelocityFilterDollaryDoo.ObtainFilteredPose(latestAngularVeloExternal[0], latestAngularVeloExternal[1], latestAngularVeloExternal[2], tempx, tempy, tempz, tempw);
-                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);*/
+                        angularAccellerationFilterDoo.ObtainFilteredPose(latestAngularAccelExternal[0], latestAngularAccelExternal[1], latestAngularAccelExternal[2], tempx, tempy, tempz, tempw);
 
                         pose.acceleration.x = latestAccel[0]; pose.acceleration.y = latestAccel[1]; pose.acceleration.z = latestAccel[2];
                         pose.velocity.x = latestVelo[0]; pose.velocity.y = latestVelo[1]; pose.velocity.z = latestVelo[2];
@@ -681,6 +696,7 @@ public:
                 while (!shouldRestart && !ExitThreadLoop) {
                     if (grabOriginPose) {
                         grabOriginPose = false;
+                        rs2_pose object_in_world_pose_frame; 
                         if (tm_sensor.get_static_node("bugorigin", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
                             if (callbackObjectPoseReceived != nullptr) {
                                 callbackObjectPoseReceived(TrackerID, "origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
