@@ -251,7 +251,7 @@ extern "C" {
     }   
     DLL_EXPORT void RegisterLocalizationCallback(int iD, LocalizationCallback cb) {
         if (to.find(iD) == to.end()) { return; } 
-        to[iD]->callbackLocalization = cb; 
+        to[iD]->callbackLocalization = cb;  
     }  
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) { 
         if (to.find(iD) == to.end()) { return; }
