@@ -20,6 +20,7 @@ class EskyRenderer {
   virtual void processDeviceEvent(UnityGfxDeviceEventType,
                                   IUnityInterfaces*) = 0;
   virtual EskyWindow* createWindow(SDL_Window*) = 0;
+  virtual void renderFrame() = 0;
 
   void setDebugCallback(DebugCallback);
   void debugMessage(const char*);

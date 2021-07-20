@@ -11,4 +11,5 @@ class EskyRenderer_Vulkan : public EskyRenderer {
   // EskyRenderer implementation
   void processDeviceEvent(UnityGfxDeviceEventType, IUnityInterfaces*) final;
   EskyWindow* createWindow(SDL_Window*) final;
+  void renderFrame() final;
 };

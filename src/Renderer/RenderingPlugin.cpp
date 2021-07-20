@@ -51,8 +51,7 @@ ESKY_EXPORT void UnityPluginUnload() {
   s_Graphics->UnregisterDeviceEventCallback(OnGraphicsDeviceEvent);
 }
 
-static void UNITY_INTERFACE_API
-OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
+static void OnGraphicsDeviceEvent(UnityGfxDeviceEventType eventType) {
   // Create graphics API implementation upon initialization
   if (eventType == kUnityGfxDeviceEventInitialize) {
     if (s_CurrentDisplay) {
@@ -127,9 +126,20 @@ ESKY_EXPORT void SetDeltas(int id, void* deltaLeft, void* deltaRight) {
   s_GetWindow(id)->setDeltas(deltaLeft, deltaRight);
 }
 
-ESKY_EXPORT UnityRenderingEvent InitGraphics() {}
+/*static void OnInitGraphics(int eventID) { s_GetWindow(eventID)->init(); }
 
-ESKY_EXPORT UnityRenderingEvent GetRenderEventFunc() {}
+ESKY_EXPORT UnityRenderingEvent InitGraphics() { return OnInitGraphics; }*/
+
+static void OnRenderEvent(int eventID) {
+  if (!s_CurrentDisplay) {
+    s_DebugMessage("ERROR: Attempted to render null display");
+    return;
+  }
+
+  s_CurrentDisplay->getRenderer()->renderFrame();
+}
+
+ESKY_EXPORT UnityRenderingEvent GetRenderEventFunc() { return OnRenderEvent; }
 
 ESKY_EXPORT void SetEnableFlagWarping(int id, bool enabled) {
   s_GetWindow(id)->setEnableFlagWarping(enabled);

@@ -33,7 +33,37 @@ EskyDisplay::~EskyDisplay() {
   SDL_Quit();
 }
 
-void EskyDisplay::run() {}
+void EskyDisplay::run() {
+  bool quit = false;
+  while (!quit) {
+    SDL_Event e;
+    while (SDL_PollEvent(&e)) {
+      switch (e.type) {
+        case SDL_QUIT: {
+          quit = true;
+          break;
+        }
+
+        case SDL_WINDOWEVENT: {
+          SDL_Window* event_window = SDL_GetWindowFromID(e.window.windowID);
+          for (auto& window : _windows) {
+            if (window && event_window == window->getHandle()) {
+              window->onEvent(&e.window);
+              break;
+            }
+          }
+
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+
+    _renderer->renderFrame();
+  }
+}
 
 EskyRenderer* EskyDisplay::getRenderer() { return _renderer; }
 
@@ -68,10 +98,7 @@ void EskyDisplay::startWindowById(int id, const wchar_t*, int, int, bool) {
   _windows[id] = _renderer->createWindow(new_window);
 }
 
-EskyWindow* EskyDisplay::getWindowById(int id) {
-  // TODO(marceline-cramer) EskyWindow store
-  return nullptr;
-}
+EskyWindow* EskyDisplay::getWindowById(int id) { return _assertWindow(id); }
 
 void EskyDisplay::stopWindowById(int id) {
   EskyWindow* window = _assertWindow(id);

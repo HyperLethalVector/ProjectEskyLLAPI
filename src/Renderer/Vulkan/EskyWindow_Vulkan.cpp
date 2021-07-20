@@ -20,4 +20,4 @@ void EskyWindow_Vulkan::sendTextureIdToPluginByIdLeft(void*) {}
 
 void EskyWindow_Vulkan::sendTextureIdToPluginByIdRight(void*) {}
 
-void EskyWindow_Vulkan::_onResize() {}
+void EskyWindow_Vulkan::_onResize(int, int) {}

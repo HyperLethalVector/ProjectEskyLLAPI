@@ -20,7 +20,7 @@ class EskyWindow_Vulkan : public EskyWindow {
 
  protected:
   // EskyWindow implementation
-  void _onResize() final;
+  void _onResize(int, int) final;
 
  private:
   EskyRenderer_Vulkan* const _renderer;

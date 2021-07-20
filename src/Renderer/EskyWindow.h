@@ -7,6 +7,7 @@ class EskyWindow {
   EskyWindow(SDL_Window*);
   virtual ~EskyWindow();
 
+  void onEvent(const SDL_WindowEvent*);
   void setTitle(const wchar_t*);
   void setRect(int, int, int, int);
   SDL_Window* getHandle();
@@ -20,8 +21,6 @@ class EskyWindow {
   virtual void sendTextureIdToPluginByIdRight(void*) = 0;
 
  protected:
-  virtual void _onResize() = 0;
-
- private:
-  SDL_Window* _window_handle;
+  virtual void _onResize(int, int) = 0;
+  SDL_Window* const _window_handle;
 };

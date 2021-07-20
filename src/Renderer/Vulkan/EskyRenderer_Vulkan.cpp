@@ -17,3 +17,5 @@ void EskyRenderer_Vulkan::processDeviceEvent(UnityGfxDeviceEventType,
 EskyWindow* EskyRenderer_Vulkan::createWindow(SDL_Window* window_handle) {
   return new EskyWindow_Vulkan(window_handle, this);
 }
+
+void EskyRenderer_Vulkan::renderFrame() {}
