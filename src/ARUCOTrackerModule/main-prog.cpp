@@ -25,7 +25,7 @@ extern "C" {
         trackerModules[InstanceID]->InitARUCOTrackerParams(marker_size, fx, fy, cx, cy, d1, d2, d3, d4);
     }
     DLL_EXPORT void PrintMarker(int InstanceID, const char* imageName, int markerID, float markerSize, int borderBits) {
-        trackerModules[InstanceID]->PrintMarker(imageName, markerID, markerSize, borderBits);
+        trackerModules[InstanceID]->PrintMarker(imageName, markerID, markerSize, borderBits); 
     }
     //Create a callback delegate   
     extern "C" DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) {
@@ -36,5 +36,5 @@ int main(int c, char* v[]) {
     trackerModules[0] = new ARUCOTracker();
     trackerModules[0]->instanceID = 0;
     trackerModules[0]->InitMarker(0, 0, 0.05f);
-    trackerModules[0]->PrintMarker("blah.png", 0, 200, 1);
+    trackerModules[0]->PrintMarker("blah.png", 0, 200, 1); 
 }

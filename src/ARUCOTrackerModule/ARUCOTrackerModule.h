@@ -103,9 +103,11 @@ public:
 		measurements.at<double>(5) = rotEurY;      // yaw
 	}
 	bool ProcessImage(unsigned char* imageDataRaw, int totalLength, int imageWidth, int imageHeight, int channels) {
+
+		//Debug::Log("Processing image");
 		if (!receivedFirstFrame) {
-			Debug::Log("initializing first frame");
-			switch (channels) {
+			//Debug::Log("initializing first frame");
+			switch (channels) { 
 				case 4:
 					currentlyProcessedFrame = cv::Mat(imageHeight, imageWidth, CV_8UC4);
 					break;
@@ -117,18 +119,21 @@ public:
 					break;
 			}
 			receivedFirstFrame = true;
-			Debug::Log("Done Initializing first frame");
+			//Debug::Log("Done Initializing first frame");
 		}
-		else {
+		else { 
+		///	Debug::Log("Memcpy");
 			memcpy(currentlyProcessedFrame.data, imageDataRaw, imageWidth * imageHeight * channels);
+		//	Debug::Log("Detecting");
 			cv::aruco::detectMarkers(currentlyProcessedFrame, dictionary, corners, ids);
-			if (ids.size() > 0) {
+			if (ids.size() > 0) { 
+		//		Debug::Log("Processing marker pose");
 				//			cv::aruco::drawDetectedMarkers(currentlyProcessedFrame, corners, ids);
 				cv::aruco::estimatePoseSingleMarkers(corners, marker_length, camera_matrix, dist_coeffs, rvecs, tvecs);
 				//pose needs a kalman filter, do so for the first detected marker
-		//		ostringstream oss;
-	//			oss << "Length of vec: " << tvecs.size() << std::endl;
-//.				Debug::Log(oss.str(), Color::Black);
+			//	ostringstream oss;
+				// << "Length of vec: " << tvecs.size() << std::endl;
+				//Debug::Log(oss.str(), Color::Black);
 //				fillMeasurements(measurements, tvecs[0].val[0], tvecs[0].val[1], tvecs[0].val[2], rvecs[0].val[0], rvecs[0].val[1], rvecs[0].val[2]); //add the measurement to the filter
 				for (std::vector<ARUCOPoseReceiveCallback*>::iterator it = subscribedPoseReceivers.begin(); it != subscribedPoseReceivers.end(); ++it) {
 
