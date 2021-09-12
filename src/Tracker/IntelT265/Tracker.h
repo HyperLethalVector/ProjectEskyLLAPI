@@ -662,15 +662,15 @@ public:
                             if (resetInitialPose) {
                                 //                    Debug::Log("Reset the initial pose", Color::Green);
                                 resetInitialPose = false;
-                                PoseInitial = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, -predicted_pose.rotation.y, predicted_pose.rotation.x, predicted_pose.rotation.z));
+                                PoseInitial = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                                 PoseInitial[3][0] = predicted_pose.translation.y;
                                 PoseInitial[3][1] = -predicted_pose.translation.x;
-                                PoseInitial[3][2] = -predicted_pose.translation.z;
+                                PoseInitial[3][2] = predicted_pose.translation.z;
                             } 
-                            PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, -predicted_pose.rotation.y, predicted_pose.rotation.x, predicted_pose.rotation.z));
+                            PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                             PoseFinal[3][0] = predicted_pose.translation.y;
                             PoseFinal[3][1] = -predicted_pose.translation.x;
-                            PoseFinal[3][2] = -predicted_pose.translation.z;
+                            PoseFinal[3][2] = predicted_pose.translation.z; 
 
                             try {
                                 DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
