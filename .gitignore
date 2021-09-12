@@ -4,6 +4,9 @@ bin/
 # Prerequisites
 *.d
 
+# CCLS language server cache
+.ccls-cache/
+
 # Compiled Object files
 *.slo
 *.lo
