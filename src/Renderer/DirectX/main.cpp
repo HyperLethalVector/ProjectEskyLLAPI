@@ -126,9 +126,13 @@ extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API StopWindowById(int wi
 	windowGraphics[windowId].SetCloseFromUnity(true);
 	PostMessage(windowIds[windowId], WM_CLOSE, 0, 0); 
 	windowIds.erase(windowId);
-	myThreads[windowId] = nullptr;
+	myThreads[windowId] = nullptr; 
 }
-  
+extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetFPSByID(int windowId, int newVal) {
+	if (windowIds.count(windowId)) { 
+		windowGraphics[windowId].SetFrameRate(newVal);
+	}
+}
 extern "C" void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetWindowRectById(int windowId, int left, int top, int width, int height) {
 	if (windowIds.count(windowId)) {
 		HWND hwnd = windowIds[windowId]; 

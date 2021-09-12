@@ -27,7 +27,7 @@ extern "C" {
 	DLL_EXPORT void PrintMarker(int InstanceID, const char* imageName, int markerID, float markerSize, int borderBits) {
 		trackerModules[InstanceID]->PrintMarker(imageName, markerID, markerSize, borderBits);
 	} 
-
+	 
     //Create a callback delegate   
     extern "C" DLL_EXPORT void RegisterDebugCallback(FuncCallBack cb) {
         callbackInstance = cb;

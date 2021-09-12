@@ -306,7 +306,7 @@ int main(int argc, char** argv)
     bool writeExtrinsics = false, writePoints = false;
     bool undistortImage = false;
     int flags = 0;
-    int cameraId = 1;
+    int cameraId = 3;
 
     bool flipVertical = false;
     bool showUndistorted = false;
@@ -413,7 +413,7 @@ int main(int argc, char** argv)
         else
             return fprintf(stderr, "Unknown option %s", s), -1;
     }
-    VideoCapture capture(cameraId, CAP_DSHOW);
+    VideoCapture capture(2, CAP_DSHOW);
     capture.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
     capture.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
     capture.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));

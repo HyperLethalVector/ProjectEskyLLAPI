@@ -7,7 +7,7 @@
 #include <iterator>
 #pragma comment (lib, "d3d11.lib")
 #pragma comment (lib, "d3dcompiler.lib")
-
+#include <chrono>
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
 
@@ -91,8 +91,8 @@ private:
 
 	ID3D11Buffer*   g_pConstantBuffer11 = NULL;
 	ID3D11Buffer* g_pConstantBuffer11_2 = NULL;
-
-
+	double timeForSwitch = 0.008333;//default is 120fps
+	int frameRateSelected = 0; // 0 is 120, 1 is 90, 2 is 60, 3 is 30
 	int width;
 	int height;
 	int bufferWidth = 0;
@@ -153,7 +153,24 @@ public:
 
 		}
 	} 
+	void SetFrameRate(int FrameRateSelected) {
+		frameRateSelected = FrameRateSelected;
 
+		switch (frameRateSelected) {
+			case 0:
+				timeForSwitch = 0.00833333333;//120fps
+				break;
+			case 1:
+				timeForSwitch = 0.011f;//90fps
+				break;
+			case 2:
+				timeForSwitch = 0.01666f;//60fps
+				break;
+			case 3:
+				timeForSwitch = 0.03333f;//30fps
+
+		}
+	}
 	void SetAffine(float* inputDeltaLeft, float* inputDeltaRight) {
 		if (!RenderLock) {
 			RenderLock = true;

@@ -3,7 +3,7 @@
 #pragma warning(disable : 4005)
 #include <stdint.h>
 #pragma warning(pop)
-
+#include <chrono>
 #include <iostream>
 #include <fstream>
 #include <memory>
@@ -115,8 +115,12 @@ void Graphics::RenderFrame() {
 }
 void Graphics::GraphicsBackgroundThreadRenderFrame() {
 	graphicsRender = true;
+	double last_ms = std::chrono::system_clock::now().time_since_epoch().count();
 	while (graphicsRender) {
+		auto now = std::chrono::system_clock::now().time_since_epoch();
+		double timeAtStart = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
 		if (!lockRenderingFrame && !RenderLock) {
+
 			if (updateDeltaPoseOnGraphicsThread) {
 				updateDeltaPoseOnGraphicsThread = false;
 				if (g_pConstantBuffer11_2) {
@@ -143,7 +147,17 @@ void Graphics::GraphicsBackgroundThreadRenderFrame() {
 				graphicsRender = false;
 			}
 			else {
-				std::this_thread::sleep_for(std::chrono::milliseconds(4));
+				now = std::chrono::system_clock::now().time_since_epoch();
+				double timeAtEnd = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+				float timeDeltaToProcessPose = static_cast<float>(max(0.0, ((timeAtEnd - last_ms) / 1000.0) ));
+				if (timeDeltaToProcessPose < timeForSwitch) {//we want to ensure our process time is a minimum of 400Hz
+					float timeToWait = timeForSwitch - timeDeltaToProcessPose;
+					Sleep(timeToWait * 1000);
+				}
+				else { 
+				}
+				last_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
+//				std::this_thread::sleep_for(std::chrono::milliseconds(4));
 			}
 		}
 	}

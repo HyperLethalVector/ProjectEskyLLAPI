@@ -1,5 +1,6 @@
 #include "common_header.h"
 #include "Filter.h"
+#include "SharedMath.h"
 //The DollaryDooFilter, it's like a One Euro Filter, except down under!
 
 class LowPassFilter {
@@ -39,7 +40,7 @@ public:
 		return y;
 	}
 	LowPassFilter() {
-
+		LowPassFilter(0.0);
 	}
 private:
 	double y, a, s;
@@ -123,7 +124,7 @@ class OneDollaryDooFilterPose : PoseFilter {
 		double rdcutoff;
 
 		OneDollaryDooFilterPose() {
-			 
+			OneDollaryDooFilterPose(200);
 		}
 		OneDollaryDooFilterPose(double _freq, double _mincutoff = 1.0, double _beta = 0.0, double _dcutoff = 0.0) {
 			tfreq = _freq;
@@ -140,7 +141,6 @@ class OneDollaryDooFilterPose : PoseFilter {
 			xRotFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
 			yRotFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
 			zRotFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
-			wRotFilter = OneDollaryDooFilter(_freq, _mincutoff, _beta, _dcutoff);
 		}
 		void SetFilterEnabled(bool enabled) {
 			useFilter = enabled;
@@ -162,37 +162,72 @@ class OneDollaryDooFilterPose : PoseFilter {
 			xRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			yRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 			zRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
-			wRotFilter.UpdateParams(_freq, _mincutoff, _beta, _dcutoff);
 		}
 
 		void Filter(double xt, double yt, double zt, double xr, double yr, double zr, double wr, float timestamp = -1.0) {
+			
+			unfilteredQuaternion.x = xr;
+			unfilteredQuaternion.y = yr;
+			unfilteredQuaternion.z = zr;
+			unfilteredQuaternion.w = wr;
+			QuatToEuler(unfilteredQuaternion, unfilteredEuler);
 			if (useFilter) {
-				transX = xPosFilter.filter(xt, timestamp);
-				transY = yPosFilter.filter(yt, timestamp);
-				transZ = zPosFilter.filter(zt, timestamp);
-				rotX = xRotFilter.filter(xr, timestamp);
-				rotY = yRotFilter.filter(yr, timestamp);
-				rotZ = zRotFilter.filter(zr, timestamp);
-				rotW = wRotFilter.filter(wr, timestamp);
+				
+				filteredTranslation.x = xPosFilter.filter(xt, timestamp);
+				filteredTranslation.y = yPosFilter.filter(yt, timestamp);
+				filteredTranslation.z = zPosFilter.filter(zt, timestamp);
+
+				filteredEuler.x = xRotFilter.filter(unfilteredEuler.x, timestamp);
+				filteredEuler.y = yRotFilter.filter(unfilteredEuler.y, timestamp);
+				filteredEuler.z = zRotFilter.filter(unfilteredEuler.z, timestamp);
 			}  
 			else { 
-				transX = xt;
-				transY = yt;
-				transZ = zt;
-				rotX = xr;
-				rotY = yr;
-				rotZ = zr;
-				rotW = wr;
+				filteredTranslation.x = xt;
+				filteredTranslation.y = yt;
+				filteredTranslation.z = zt;
+
+				filteredEuler.x = unfilteredEuler.x;
+				filteredEuler.y = unfilteredEuler.y;
+				filteredEuler.z = unfilteredEuler.z;
+			}
+		}
+		void Filter(double xt, double yt, double zt, float timestamp = -1.0) {
+
+			if (useFilter) {
+				filteredTranslation.x = xPosFilter.filter(xt, timestamp);
+				filteredTranslation.y = yPosFilter.filter(yt, timestamp);
+				filteredTranslation.z = zPosFilter.filter(zt, timestamp);
+			}
+			else {
+				filteredTranslation.x = xt;
+				filteredTranslation.y = yt;
+				filteredTranslation.z = zt;
 			}
 		}
 		void ObtainFilteredPose(float &xt, float &yt, float &zt, float &xr, float &yr, float &zr, float &wr) {
-			xt = transX;
-			yt = transY;
-			zt = transZ;
-			xr = rotX;
-			yr = rotY;
-			zr = rotZ;
-			wr = rotW; 
+			EulerToQuat(filteredEuler, filteredQuaternion);
+			xt = filteredTranslation.x;
+			yt = filteredTranslation.y;
+			zt = filteredTranslation.z;
+			xr = filteredQuaternion.x;
+			yr = filteredQuaternion.y;
+			zr = filteredQuaternion.z;
+			wr = filteredQuaternion.w; 
+		}
+		void ObtainFilteredPose(double& xt, double& yt, double& zt, double& xr, double& yr, double& zr, double& wr) {
+			EulerToQuat(filteredEuler, filteredQuaternion);
+			xt = filteredTranslation.x;
+			yt = filteredTranslation.y;
+			zt = filteredTranslation.z;
+			xr = filteredQuaternion.x;
+			yr = filteredQuaternion.y;
+			zr = filteredQuaternion.z;
+			wr = filteredQuaternion.w;
+		}
+		void ObtainFilteredPose(double& xt, double& yt, double& zt) {
+			xt = filteredTranslation.x;
+			yt = filteredTranslation.y;
+			zt = filteredTranslation.z;
 		}
 		void Reset() {
 			xPosFilter = OneDollaryDooFilter(tfreq, tmincutoff, tbeta, tdcutoff);
@@ -201,7 +236,6 @@ class OneDollaryDooFilterPose : PoseFilter {
 			xRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
 			yRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
 			zRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
-			wRotFilter = OneDollaryDooFilter(rfreq, rmincutoff, rbeta, rdcutoff);
 		}
 	private:
 		OneDollaryDooFilter xPosFilter;
@@ -210,13 +244,14 @@ class OneDollaryDooFilterPose : PoseFilter {
 		OneDollaryDooFilter xRotFilter;
 		OneDollaryDooFilter yRotFilter;
 		OneDollaryDooFilter zRotFilter;
-		OneDollaryDooFilter wRotFilter;
+
 		bool useFilter = false;
-		double transX;
-		double transY;
-		double transZ;
-		double rotX;
-		double rotY;
-		double rotZ;
-		double rotW;
+
+		Vector3 filteredTranslation;
+
+		Quaternion unfilteredQuaternion;
+		Quaternion filteredQuaternion;
+
+		Vector3 unfilteredEuler;
+		Vector3 filteredEuler;
 };

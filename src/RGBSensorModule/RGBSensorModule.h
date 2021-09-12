@@ -125,7 +125,7 @@ public:
 	}
 	void OpenCameraThread() {
 
-		VideoCapture cap(camID, CAP_DSHOW); // open the default camera
+		VideoCapture cap(camID); // open the default camera
 		cap.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
 		cap.set(cv::CAP_PROP_FRAME_HEIGHT, 720);
 		cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'));
@@ -138,7 +138,7 @@ public:
 		Debug::Log("Opened Sensor");
 		while (!stopFlags)
 		{
-			
+			Debug::Log("Captured Sensor Frame");
 			cap >> frame;
 			 // get a new frame from cameras
 
