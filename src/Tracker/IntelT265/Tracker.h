@@ -451,8 +451,8 @@ public:
 
     }
     double last_ms = 0;
-    void DoFunctionTracking() {
-        if (usesIntegrator) {
+    void DoFunctionTracking() { // This is the main tracking loop initiated by the system
+        if (usesIntegrator) {//this is used to flag a disconnect/reconnect of the t261 to fix it's 'locking' issue, unused by the X sensor
 #ifdef __linux__
             SerialPort serialPort(com_port, BaudRate::B_9600);
             serialPort.SetTimeout(-1); // Block when reading until any data is received
@@ -470,9 +470,10 @@ public:
         }
         double tempx, tempy, tempz = 0;
         double tempw = 1;
-        while (!ExitThreadLoop) {
+        while (!ExitThreadLoop) { //start a loop for when we reset the device
             try {
                 Debug::Log("Starting Thread", Color::Green);
+                // Initialize pose filters
                 poseFilter = OneDollaryDooFilterPose(tfreq, tmincutoff, tbeta, tdcutoff);
                 
 
@@ -493,14 +494,17 @@ public:
                 uint32_t dev_q;
                 rs2::context ctx;
                 cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
+                // If we're using pass through, enable the streams
                 if (initializeWithPassthrough) {
                     cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 1);
                     cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 2);
                 }
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
+                    // This callback handles all of the sensor's code
                     if (n.get_category() == RS2_NOTIFICATION_CATEGORY_POSE_RELOCALIZATION) {
                         hasLocalized = true;
+                        // The LLAPI automatically sets up these pointer functions, on device relocalization call them
                         if (callbackLocalization != nullptr) {
                             callbackLocalization(TrackerID, 1);
                         }
@@ -613,7 +617,7 @@ public:
                             poseFilterK.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
                             poseFilter.Filter(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6], dt_p);
                             poseFilter.ObtainFilteredPose(latestPose[0], latestPose[1], latestPose[2], latestPose[3], latestPose[4], latestPose[5], latestPose[6]);
-                            //                  Debug::Log("Filtered and Obtained Filtered Pose", Color::Green);
+                            //  This 'delta pose' calculates the last captured and rendered frame, and the current pose
                             if (resetInitialPose) {
                                 //                    Debug::Log("Reset the initial pose", Color::Green);
                                 resetInitialPose = false;
@@ -631,6 +635,7 @@ public:
                                 DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
                                 ConvMatrixToFloatArray(DeltaLeftEye, deltaPoseLeftArray);
                                 ConvMatrixToFloatArray(DeltaRightEye, deltaPoseRightArray);
+                                //  Once delta pose is calculated, call the function pointer callback
                                 if (callbackDeltaPoseUpdate != nullptr) {
                                     callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
                                 }
@@ -640,6 +645,7 @@ public:
                             }
                         }
                         else {
+                            // this is the old non filtered approach to receiving the noisy data from the t261
                             pose.translation.x = latestTransExternal[0]; pose.translation.y = latestTransExternal[1];  pose.translation.z = latestTransExternal[2];
                             pose.rotation.x = latestRotExternal[0]; pose.rotation.y = latestRotExternal[1]; pose.rotation.z = latestRotExternal[2]; pose.rotation.w = latestRotExternal[3];
 
@@ -658,7 +664,7 @@ public:
                                    dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
                             };
                             predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
-
+                            //  This 'delta pose' calculates the last captured and rendered frame, and the current pose
                             if (resetInitialPose) {
                                 //                    Debug::Log("Reset the initial pose", Color::Green);
                                 resetInitialPose = false;
@@ -667,6 +673,7 @@ public:
                                 PoseInitial[3][1] = -predicted_pose.translation.x;
                                 PoseInitial[3][2] = predicted_pose.translation.z;
                             } 
+                            //  Once delta pose is calculated, call the function pointer callback
                             PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
                             PoseFinal[3][0] = predicted_pose.translation.y;
                             PoseFinal[3][1] = -predicted_pose.translation.x;
@@ -691,12 +698,13 @@ public:
 
                     if (auto fs = frame.as<rs2::frameset>()) {// For camera frames
                         hasImage = true;
-                        if (receivedPoseFirst) {
+                        if (receivedPoseFirst) {//Ensure we've received a pose first
                             LockImage = true;
                             rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);
                             const int w = video_frame.get_width();
                             const int h = video_frame.get_height();
-                            if (!hasReceivedCameraStream) {
+                            if (!hasReceivedCameraStream) {// if we haven't received an image, we need to initialize the texture and the camera parameters.
+                                //Ideally, you would be doing this for the RGB Stream
                                 rs2::stream_profile fisheye_stream = myProf.get_stream(RS2_STREAM_FISHEYE, 1);
                                 intrinsics = fisheye_stream.as<rs2::video_stream_profile>().get_intrinsics();
                                 rs2_extrinsics pose_to_fisheye_extrinsics = myProf.get_stream(RS2_STREAM_POSE).get_extrinsics_to(fisheye_stream);
@@ -724,6 +732,7 @@ public:
                                 }
                             }
                             fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
+                            //We convert the grayscale to a full BGRA image so unity can consume it, undistorting as required
                             cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA, 4);
                             if (!hasReceivedCameraStream) {
                                 fisheye_mat_color_undistort = fisheye_mat_color.clone();
@@ -732,6 +741,7 @@ public:
                             try {
                                 cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
                                 fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
+                                //When ready, call any sensor callbacks that have been subscribed by the HLAPI
                                 for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
                                     if ((*it) != nullptr) {
                                         if ((*it)->callbackWithID != nullptr) {
@@ -744,6 +754,7 @@ public:
                                 Debug::Log(e.what(), Color::Red);
                             }
                             if (!hasReceivedCameraStream) {
+                                //Again, if we haven't received a stream before, this will call a callback to initialize the preview stream within unity
                                 textureChannels = 4;
                                 if (textureInitializedCallback != nullptr) {
                                     double fovX, fovY = 0;
@@ -931,6 +942,8 @@ public:
         file.write((char*)bytes.data(), bytes.size());
     }
     void UpdatecameraTextureGPU() {
+        //This asynchronous thread tells the GPU to copy the texture from cpu memory to gpu, allowing it to display within unity
+        //This is called automagically by the unity LLAPI
 #ifdef __linux__ //OGL 
 
 #else 
