@@ -33,6 +33,10 @@ if(WIN32)
 
   set(PROJECT_BINARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/\$\(Configuration\)")                # TODO: Update this variable to correct path - folder to which your project will compile
   set(ADDITIONAL_INCLUDE_DIRS "C:\\Program Files (x86)\\Intel RealSense SDK 2.0\\include")   # TODO: Update this variable to correct path - folder where librealsense2 folder is found
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+  SET( XSlamSDK_DIR "C:/Libraries/XSlamSDK-rc" )
+  find_package( XSlamSDK REQUIRED )
 
   find_package (GLM REQUIRED)
   FIND_PATH(DX_INCLUDE_PATH d3d11.h      PATHS "$ENV{DXSDK_DIR}/Include" "C:/Program Files (x86)/Microsoft DirectX SDK/Include" DOC "The directory where D3D11.h resides")
@@ -75,12 +79,21 @@ if(WIN32)  # Windows
   set(CMAKE_EXE_LINKER_FLAGS "-static")
   add_library(libProjectEskyLLAPIIntel SHARED
     ./src/Tracker/IntelT265/main.cpp
-    ./src/Tracker/IntelT265/Tracker.cpp
+    ./src/Tracker/IntelT265/Tracker.h
     ./src/Tracker/IntelT265/Serial.cpp
     ./include/DollaryDooFilter.h
     ./include/Serial.h)
   set_target_properties(libProjectEskyLLAPIIntel PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
   target_link_libraries(libProjectEskyLLAPIIntel ${DEPENDENCIES} ${REALSENSE2_FOUND}  ${OpenCV_LIBS})
+  #the secret sensor
+  add_library(libProjectEskyLLAPIX SHARED
+    ./src/Tracker/X/main.cpp
+    ./src/Tracker/X/Tracker.h
+    ./include/DollaryDooFilter.h)
+  set_target_properties(libProjectEskyLLAPIX PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
+  target_link_libraries(libProjectEskyLLAPIX ${DEPENDENCIES} ${XSlamSDK_LIBRARIES} ${OpenCV_LIBS})
+  
+  
   #ZED
   add_library(libProjectEskyLLAPIZED SHARED
     ./src/Tracker/ZED/main.cpp
@@ -89,6 +102,7 @@ if(WIN32)  # Windows
   set_source_files_properties(./src/UnityHooks.def PROPERTIES HEADER_FILE_ONLY TRUE)
   set_target_properties(libProjectEskyLLAPIZED PROPERTIES COMPILE_DEFINITIONS BUILDER_STATIC_DEFINE)
   target_link_libraries(libProjectEskyLLAPIZED ${DEPENDENCIES} ${ZED_LIBS}  ${D3D11_LIBRARY} ${D3DX11_LIBRARY} ${OpenCV_LIBS} "-static")
+  
 
   #RGBSensorModule
   add_library(libProjectEskyRGBSensorModule SHARED
@@ -125,7 +139,7 @@ if(WIN32)  # Windows
 else()  # Linux
   add_library(libProjectEskyLLAPIIntel SHARED
     ./src/Tracker/IntelT265/main.cpp
-    ./src/Tracker/IntelT265/Tracker.cpp
+    ./src/Tracker/IntelT265/Tracker.h
     ./src/Tracker/IntelT265/LinuxSerialPort.cpp
     ./include/LinuxSerialPort.hpp
     ./include/LinuxSerialException.hpp)
