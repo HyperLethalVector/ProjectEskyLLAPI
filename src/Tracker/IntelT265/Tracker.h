@@ -10,14 +10,12 @@
 #include <fstream>
 #include <vector>
 #include <iomanip>
-#include <opencv2/video/tracking.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
 #include <math.h>
 #include <stack>
 #include <float.h>
-#include <opencv2/core/directx.hpp>
 #ifdef __linux__ //OGL
 
 #else
@@ -27,9 +25,6 @@
 #include "common_header.h"
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/calib3d.hpp>
-#include <opencv2/imgproc.hpp>
 #ifdef __linux__
 #include <LinuxSerialPort.hpp>
     using namespace mn::CppLinuxSerial;
@@ -153,11 +148,7 @@ public:
 
     glm::mat4 DeltaLeftEye, DeltaRightEye;
 
-    cv::Mat fisheye_mat;
-    cv::Mat fisheye_mat_color;
-    cv::Mat fisheye_mat_color_undistort;
-    cv::Mat fisheye_mat_color_cpu;
-    cv::Mat lm1, lm2;
+   
 
     bool hasLocalized = false;
     unsigned char* fileLocation;
@@ -167,9 +158,6 @@ public:
     bool usesIntegrator = false;
     float CurrentTimeOffset = 0;
     int trackingSystem = 0; //0 for old, 1 for new
-
-    cv::Mat distCoeffsL;
-    cv::Mat intrinsicsL;
     bool hasReceivedCameraStream = false;
     char* com_port = "\\\\.\\COM5";
 #ifdef __linux__
@@ -493,12 +481,12 @@ public:
                 std::vector<std::string> serials;
                 uint32_t dev_q;
                 rs2::context ctx;
-                cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);
+                cfg.enable_stream(RS2_STREAM_POSE, RS2_FORMAT_6DOF);//We prevent the use of the see through to ensure edge compute mode
                 // If we're using pass through, enable the streams
-                if (initializeWithPassthrough) {
+/*                if (initializeWithPassthrough) {
                     cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 1);
                     cfg.enable_stream(rs2_stream::RS2_STREAM_FISHEYE, 2);
-                }
+                }*/
                 rs2::pose_sensor tm_sensor = cfg.resolve(pipe).get_device().first<rs2::pose_sensor>();
                 tm_sensor.set_notifications_callback([&](const rs2::notification& n) {
                     // This callback handles all of the sensor's code
@@ -621,15 +609,19 @@ public:
                             if (resetInitialPose) {
                                 //                    Debug::Log("Reset the initial pose", Color::Green);
                                 resetInitialPose = false;
-                                PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                                PoseInitial[3][0] = latestPose[1];
-                                PoseInitial[3][1] = -latestPose[0];
+                                PoseInitial = glm::toMat4(glm::qua<float>(latestPose[6], latestPose[3], latestPose[4], latestPose[5]));
+
+                                PoseInitial[3][0] = latestPose[0];
+                                PoseInitial[3][1] = latestPose[1];
                                 PoseInitial[3][2] = -latestPose[2];
                             }
-                            PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], -latestPose[4], latestPose[3], latestPose[5]));
-                            PoseFinal[3][0] = latestPose[1];
-                            PoseFinal[3][1] = -latestPose[0];
+                            PoseFinal = glm::toMat4(glm::qua<float>(latestPose[6], latestPose[3], latestPose[4], latestPose[5]));
+                            PoseFinal[3][0] = latestPose[0];
+                            PoseFinal[3][1] = latestPose[1];
                             PoseFinal[3][2] = -latestPose[2];
+                            ostringstream oss;
+                            oss << "Pose: " << latestPose[6] << "," << latestPose[3] << "," << latestPose[4] << "," << latestPose[5] << std::endl;
+                            Debug::Log(oss.str(), Color::Green);
                             try {
                                 DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
                                 DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
@@ -662,21 +654,21 @@ public:
                                    dt_s * (dt_s / 2 * pose.angular_acceleration.x + pose.angular_velocity.x),
                                    dt_s * (dt_s / 2 * pose.angular_acceleration.y + pose.angular_velocity.y),
                                    dt_s * (dt_s / 2 * pose.angular_acceleration.z + pose.angular_velocity.z),
-                            };
+                            }; 
                             predicted_pose.rotation = quaternion_multiply(quaternion_exp(W), pose.rotation);
                             //  This 'delta pose' calculates the last captured and rendered frame, and the current pose
                             if (resetInitialPose) {
                                 //                    Debug::Log("Reset the initial pose", Color::Green);
                                 resetInitialPose = false;
-                                PoseInitial = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
-                                PoseInitial[3][0] = predicted_pose.translation.y;
-                                PoseInitial[3][1] = -predicted_pose.translation.x;
+                                PoseInitial = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.x, -predicted_pose.rotation.y, -predicted_pose.rotation.z));
+                                PoseInitial[3][0] = predicted_pose.translation.x;
+                                PoseInitial[3][1] = -predicted_pose.translation.y;
                                 PoseInitial[3][2] = predicted_pose.translation.z;
                             } 
                             //  Once delta pose is calculated, call the function pointer callback
-                            PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.y, -predicted_pose.rotation.x, predicted_pose.rotation.z));
-                            PoseFinal[3][0] = predicted_pose.translation.y;
-                            PoseFinal[3][1] = -predicted_pose.translation.x;
+                            PoseFinal = glm::toMat4(glm::qua<float>(predicted_pose.rotation.w, predicted_pose.rotation.x, -predicted_pose.rotation.y, -predicted_pose.rotation.z));
+                            PoseFinal[3][0] = predicted_pose.translation.x;
+                            PoseFinal[3][1] = -predicted_pose.translation.y;
                             PoseFinal[3][2] = predicted_pose.translation.z; 
 
                             try {
@@ -687,7 +679,7 @@ public:
                                 if (callbackDeltaPoseUpdate != nullptr) {
                                     callbackDeltaPoseUpdate(TrackerID, deltaPoseLeftArray, deltaPoseRightArray);
                                 }
-                            }
+                            } 
                             catch (std::exception e) {
                                 Debug::Log(e.what(), Color::Red);
                             }
@@ -703,69 +695,6 @@ public:
                             rs2::video_frame video_frame = frame.as<rs2::frameset>().get_fisheye_frame(1);
                             const int w = video_frame.get_width();
                             const int h = video_frame.get_height();
-                            if (!hasReceivedCameraStream) {// if we haven't received an image, we need to initialize the texture and the camera parameters.
-                                //Ideally, you would be doing this for the RGB Stream
-                                rs2::stream_profile fisheye_stream = myProf.get_stream(RS2_STREAM_FISHEYE, 1);
-                                intrinsics = fisheye_stream.as<rs2::video_stream_profile>().get_intrinsics();
-                                rs2_extrinsics pose_to_fisheye_extrinsics = myProf.get_stream(RS2_STREAM_POSE).get_extrinsics_to(fisheye_stream);
-                                fx = intrinsics.fx;
-                                fy = intrinsics.fy;
-                                cx = intrinsics.ppx;
-                                cy = intrinsics.ppy;
-                                d1 = intrinsics.coeffs[0];
-                                d2 = intrinsics.coeffs[1];
-                                d3 = intrinsics.coeffs[2];
-                                d4 = intrinsics.coeffs[3];
-                                intrinsicsL = (cv::Mat_<double>(3, 3) <<
-                                    fx, 0, cx,
-                                    0, fy, cy, 0, 0, 1);
-                                distCoeffsL = cv::Mat(1, 5, CV_32F, intrinsics.coeffs);
-                                cv::Mat distortionCoefficients = (cv::Mat1d(4, 1) << intrinsics.coeffs[0], intrinsics.coeffs[1], intrinsics.coeffs[2], intrinsics.coeffs[3]);
-                                cv::Mat identity = cv::Mat::eye(3, 3, CV_64F);
-                                cv::Mat PP1(3, 4, cv::DataType<float>::type);
-                                intrinsicsL.copyTo(PP1.rowRange(0, 3).colRange(0, 3));
-                                try {
-                                    cv::fisheye::initUndistortRectifyMap(intrinsicsL, distortionCoefficients, identity, PP1, cv::Size(848, 800), CV_32FC1, lm1, lm2);
-                                }
-                                catch (cv::Exception& e) {
-                                    Debug::Log(e.what(), Color::Red);
-                                }
-                            }
-                            fisheye_mat = cv::Mat(cv::Size(w, h), CV_8UC1, (void*)video_frame.get_data(), cv::Mat::AUTO_STEP);
-                            //We convert the grayscale to a full BGRA image so unity can consume it, undistorting as required
-                            cv::cvtColor(fisheye_mat, fisheye_mat_color, cv::COLOR_GRAY2BGRA, 4);
-                            if (!hasReceivedCameraStream) {
-                                fisheye_mat_color_undistort = fisheye_mat_color.clone();
-                                fisheye_mat_color_cpu = fisheye_mat_color.clone();
-                            }
-                            try {
-                                cv::remap(fisheye_mat_color, fisheye_mat_color_undistort, lm1, lm2, cv::INTER_LINEAR);
-                                fisheye_mat_color_cpu = fisheye_mat_color_undistort.clone();
-                                //When ready, call any sensor callbacks that have been subscribed by the HLAPI
-                                for (std::vector<SensorInfoCallback*>::iterator it = subscribedImageReceivers.begin(); it != subscribedImageReceivers.end(); ++it) {
-                                    if ((*it) != nullptr) {
-                                        if ((*it)->callbackWithID != nullptr) {
-                                            (*it)->callbackWithID((*it)->instanceID, fisheye_mat_color_cpu.data, fisheye_mat_color_cpu.rows * fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.cols, fisheye_mat_color_cpu.rows, fisheye_mat_color_cpu.channels());
-                                        }
-                                    }
-                                }
-                            }
-                            catch (cv::Exception& e) {
-                                Debug::Log(e.what(), Color::Red);
-                            }
-                            if (!hasReceivedCameraStream) {
-                                //Again, if we haven't received a stream before, this will call a callback to initialize the preview stream within unity
-                                textureChannels = 4;
-                                if (textureInitializedCallback != nullptr) {
-                                    double fovX, fovY = 0;
-                                    double focalLength = 0;
-                                    double aspectRatio = 0;
-                                    cv::Point2d myPrincipalPoint;
-                                    cv::calibrationMatrixValues(intrinsicsL, cv::Size(w, h), 0, 0, fovX, fovY, focalLength, myPrincipalPoint, aspectRatio);
-                                    textureInitializedCallback(TrackerID, w, h, 4, fx, fy, cx, cy, fovX, fovY, focalLength, d1, d2, d3, d4, 1);
-                                }
-                                hasReceivedCameraStream = true;
-                            }
                             LockImage = false;
                         }
 
@@ -951,14 +880,6 @@ public:
         if (!LockImage) {
             if (m_Device != nullptr) {
                 if (hasReceivedTexture) {
-                    ID3D11DeviceContext* ctx = NULL;
-                    m_Device->GetImmediateContext(&ctx);
-                    if (ctx != nullptr) {
-                        if (d3dtex != nullptr) {
-                            ctx->UpdateSubresource(d3dtex, 0, 0, fisheye_mat_color_undistort.data, fisheye_mat_color_undistort.step[0], (UINT)fisheye_mat_color_undistort.total());
-                        }
-                        ctx->Release();
-                    }
                 }
             }
         }

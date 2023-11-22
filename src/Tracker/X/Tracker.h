@@ -1,3 +1,12 @@
+#include <cstdlib>
+#include <thread>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cmath>
+#include <mutex>
+#include <signal.h>
+#include <cstring>
 #include <glm/common.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -8,15 +17,14 @@
 #include <fstream>
 #include <vector>
 #include <iomanip>
-#include <opencv2/video/tracking.hpp>
 #include <chrono>
 #include <thread>
 #include <mutex>
 #include <math.h>
 #include <stack>
 #include <float.h>
-#include <opencv2/core/directx.hpp>
-#include <xslam/xslam_sdk.hpp>
+#include <xv-sdk.h>
+#include <xv-sdk-ex.h>
 #include <cmath>
 
 #ifdef __linux__ //OGL
@@ -28,9 +36,6 @@
 #include "common_header.h"
 #include "IUnityInterface.h"
 #include "IUnityGraphics.h"
-#include <opencv2/highgui/highgui.hpp>
-#include <opencv2/calib3d.hpp>
-#include <opencv2/imgproc.hpp>
 #ifdef __linux__
 #include <LinuxSerialPort.hpp>
     using namespace mn::CppLinuxSerial;
@@ -154,12 +159,6 @@ public:
 
     glm::mat4 DeltaLeftEye, DeltaRightEye;
 
-    cv::Mat fisheye_mat;
-    cv::Mat fisheye_mat_color;
-    cv::Mat fisheye_mat_color_undistort;
-    cv::Mat fisheye_mat_color_cpu;
-    cv::Mat lm1, lm2;
-
     bool hasLocalized = false;
     unsigned char* fileLocation;
     int textureWidth = 0;
@@ -169,8 +168,6 @@ public:
     float CurrentTimeOffset = 0;
     int trackingSystem = 0; //0 for old, 1 for new
 
-    cv::Mat distCoeffsL;
-    cv::Mat intrinsicsL;
     bool hasReceivedCameraStream = false;
     char* com_port = "\\\\.\\COM5";
 #ifdef __linux__
@@ -333,31 +330,27 @@ public:
     }
     double last_ms = 0;
     
-        // Display the time and the 6 dof pose in the world coordinate frame
-    void show_pose(xslam_pose* pose)
+    void show_pose_quaternion(const xv::Pose& pose)
     {
-    }
-    void show_pose_quaternion(xslam_pose_quaternion* pose)
-    {
-        latestPoseExternal[0] = pose->x[0];
-        latestPoseExternal[1] = pose->x[1];
-        latestPoseExternal[2] = pose->x[2];
-        latestPoseExternal[3] = pose->quaternion[0];
-        latestPoseExternal[4] = pose->quaternion[1];
-        latestPoseExternal[5] = pose->quaternion[2];
-        latestPoseExternal[6] = pose->quaternion[3];
+        latestPoseExternal[0] = pose.translation()[0];
+        latestPoseExternal[1] = pose.translation()[1];
+        latestPoseExternal[2] = pose.translation()[2];
+        latestPoseExternal[3] = pose.quaternion()[0];
+        latestPoseExternal[4] = pose.quaternion()[1];
+        latestPoseExternal[5] = pose.quaternion()[2];
+        latestPoseExternal[6] = pose.quaternion()[3];
         if (resetInitialPose) {
             //                    Debug::Log("Reset the initial pose", Color::Green);
             resetInitialPose = false;
-            PoseInitial = glm::toMat4(glm::qua<float>(latestPoseExternal[6], -latestPoseExternal[4], latestPoseExternal[3], latestPoseExternal[5]));
-            PoseInitial[3][0] = latestPoseExternal[1];
-            PoseInitial[3][1] = -latestPoseExternal[0];
-            PoseInitial[3][2] = -latestPoseExternal[2];
+            PoseInitial = glm::toMat4(glm::qua<float>(latestPoseExternal[6], latestPoseExternal[3], -latestPoseExternal[4], -latestPoseExternal[5]));
+            PoseInitial[3][0] = latestPoseExternal[0];
+            PoseInitial[3][1] = -latestPoseExternal[1];
+            PoseInitial[3][2] = latestPoseExternal[2];
         }
-        PoseFinal = glm::toMat4(glm::qua<float>(latestPoseExternal[6], -latestPoseExternal[4], latestPoseExternal[3], latestPoseExternal[5]));
-        PoseFinal[3][0] = latestPoseExternal[1];
-        PoseFinal[3][1] = -latestPoseExternal[0];
-        PoseFinal[3][2] = -latestPoseExternal[2];
+        PoseFinal = glm::toMat4(glm::qua<float>(latestPoseExternal[6], latestPoseExternal[3], -latestPoseExternal[4], -latestPoseExternal[5]));
+        PoseFinal[3][0] = latestPoseExternal[0];
+        PoseFinal[3][1] = -latestPoseExternal[1];
+        PoseFinal[3][2] = latestPoseExternal[2];
         try {
             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
@@ -370,27 +363,6 @@ public:
         catch (std::exception e) {
             Debug::Log(e.what(), Color::Red);
         }
-        /*        oss
-                    << "[6DOF]: [" << std::setw(8) << pose->timestamp << std::setw(4) << " s],"
-                    << " p=(" << pose->x << " " << pose->y << " " << pose->z
-                    << " ), r=(" << pose->pitch << " " << pose->yaw << " " << pose->roll << " ), to origin(" << distance_to_origin << ")"
-                    << ", Confidence= " << (int)pose->confidence << std::endl;
-                Debug::Log(oss.str());*/
-    }
-
-
-    // Function to call for each IMU info
-    void show_imu(xslam_imu* imu)
-    {
-        std::cout
-            << "[IMU] : [" << std::setw(8) << imu->timestamp << std::setw(4) << " s],"
-            << " Gyro=(" << imu->gyro[0] << " " << imu->gyro[1] << " " << imu->gyro[2] << "),"
-            << " Accel=(" << imu->accel[0] << " " << imu->accel[1] << " " << imu->accel[2] << "),"
-            << " Magn=(" << imu->magn[0] << " " << imu->magn[1] << " " << imu->magn[2] << ")";
-        if (imu->temperature > 0) {
-            std::cout << ", Temp=" << (imu->temperature - 273.15f);
-        }
-        std::cout << std::endl;
     }
 
 
@@ -400,41 +372,10 @@ public:
         oss << "[LOST] Device is lost at timestamp " << timestamp << " sec." << std::endl;
         Debug::Log(oss.str(), Color::Red);
     }
-
-
-    void show_odo(xslam_odo* odo)
+    int main(int argc, char** argv)
     {
-        
-    }
-
-
-    // check the comments of xslam_sparse_grid_3d in xslam_sdk.hpp
-    void grid3d_callback(xslam_sparse_grid_3d data)
-    {
-        std::cout << "[3D-GRID] : #voxels=" << data.size << ", voxel size=" << data.voxel_size << "m" << std::endl;
-        for (int i = 0; i < data.size; ++i)
-        {
-            //const xslam_3d_point& p3d = data.voxels[i];
-            //p3d.x, p3d.y, p3d.z
-        }
-    }
-
-
-    // check the comments of xslam_sparse_grid_2d in xslam_sdk.hpp
-    void grid2d_callback(xslam_sparse_grid_2d data)
-    {
-        std::cout << "[2D-GRID] : #pixels=" << data.size << ", pixel size=" << data.pixel_size << "m" << std::endl;
-        for (int i = 0; i < data.size; ++i)
-        {
-            // const xslam_2d_point& p2d = data.pixels[i];
-            //p2d.x, p2d.y
-        }
-    }
-
-        int main(int argc, char** argv)
-        {
           
-        }
+    }
     void DoFunctionTracking() {
         double tempx, tempy, tempz = 0;
         double tempw = 1;
@@ -454,9 +395,6 @@ public:
                 if (initializeWithPassthrough) {
 
                 }
-                //Get the sensor
-                //Add localization callback
-                //First, should we upload the map?
                 if (shouldUploadData) {
                     shouldUploadData = false;
                     try {
@@ -481,95 +419,39 @@ public:
                 double lastPoseTime_ms = 0.0;
 
                 double last_msps = 0;
-                xslam_disp_version();
-                
-                std::atomic_bool stop(false);
-
-
-                xslam_sparse_grid_config sparse_grid_config;
-                sparse_grid_config.voxel_size = .05f;
-                sparse_grid_config.occupied_if_proba_over = .5f;
-                sparse_grid_config.min_height = .01f;
-                sparse_grid_config.max_height = .2f;
+                std::atomic_bool stop(false); 
                 Debug::Log("Setting up callbacks",Color::Green);
                 // function and configuration to get the 3D grid
-    //            xslam_sparse_grid3d_callback(&grid3d_callback, sparse_grid_config);
-
-                // function and configuration to get the 2D grid
-             //   xslam_sparse_grid2d_callback(&grid2d_callback, sparse_grid_config);
-
-                
-
-                // set the function to call for each 6 dof pose, the protopy must be "(void)(xslam_pose*)"
-                xslam_6dof_quaternion_callback([&](xslam_pose_quaternion* p) {
-                        show_pose_quaternion(p); 
-                    });
-                // set the IMU callback
-                xslam_imu_callback([&](xslam_imu* imu) {
-                    show_imu(imu);
-                    });
-                // set the lost callback
-                xslam_lost_callback([&](float s) {
-                    lost(s);
-                    });
                 Debug::Log("STARTING SENSOR");
-                // start visual odometry
-                xslam_status s = xslam_start_vo();
-                xslam_reset_slam();
-                if (s == xslam_status::success) { 
-                    Debug::Log("Succeeded");
+                std::string json = "";
+                auto devices = xv::getDevices(10.0);
+                xv::setLogLevel(xv::LogLevel::debug);
+                std::ofstream ofs;
+                if (devices.empty())
+                {
+                    Debug::Log("No Devices Found, Returning", Color::Red);
+                    return;
                 }
-                else {
-                    Debug::Log("Failed");
-                    Debug::Log(s);
-                }
-
-                // stop visual odometry
-
-                //Then let's initialize the sensor and begin tracking 
-               // myProf = pipe.start() {
-                 //   bool hasPose = false;
-                  //
-                //this loop handles the internal system, hoping the X has a callback function like the t261 does or things might get.... interesting
+                auto device = devices.begin()->second;
                 shouldRestart = false;
                 Debug::Log("Entering Managment Loop", Color::Green);
                 while (!shouldRestart && !ExitThreadLoop) {
+                        
+                    if (std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()) {
+                        std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->registerCallback([this](const xv::Pose& pose) {
+                            show_pose_quaternion(pose);
+                            });
+                        std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->start(xv::Slam::Mode::Edge);
+                    }
                     if (grabOriginPose) {
                         grabOriginPose = false;
-                        //Should be be returning the reloclized coordinates?
-//                        rs2_pose object_in_world_pose_frame; 
-  //                      if (tm_sensor.get_static_node("bugorigin", object_in_world_pose_frame.translation, object_in_world_pose_frame.rotation)) {
-    //                        if (callbackObjectPoseReceived != nullptr) {
-      //                          callbackObjectPoseReceived(TrackerID, "origin_of_map", object_in_world_pose_frame.translation.x, object_in_world_pose_frame.translation.y, object_in_world_pose_frame.translation.z, object_in_world_pose_frame.rotation.x, object_in_world_pose_frame.rotation.y, object_in_world_pose_frame.rotation.z, object_in_world_pose_frame.rotation.w);
-        //                    }
-//                        }
                     }
                     //need to get callback saying we have images ready to go!
 
                     //Do we need to grab the current local map?
                     if (shouldGrabMap) {
                         shouldGrabMap = false;
-                        /*set a local reference frame*/
-/*                        rs2_pose p;
-                        p.translation.x = 0;
-                        p.translation.y = 0;
-                        p.translation.z = 0;
-                        p.rotation.x = 0;
-                        p.rotation.y = 0;
-                        p.rotation.z = 0;
-                        p.rotation.w = 1;
-                        if (tm_sensor.set_static_node("bugorigin", p.translation, p.rotation)) {
-                        }
-                        else {
-                        }
-                        */
                         try {
-                            /*Export the map binary*/
-//                            std::this_thread::sleep_for(std::chrono::seconds(2));
-  //                          rs2::calibration_table res = tm_sensor.export_localization_map();
-    //                        std::this_thread::sleep_for(std::chrono::seconds(2));
-      //                      raw_file_from_bytes("temp.raw", res);
-        //                    callbackBinaryMap(TrackerID);
                         }
                         catch (const std::exception& ex) {
                             // ...
@@ -603,16 +485,7 @@ public:
                 if (usesIntegrator) {
                 }
                 Debug::Log("Exiting Managment Loop, first stopping sensor",Color::Green);
-                xslam_stop();
-
-                if (xslam_free() == xslam_status::failure ? EXIT_FAILURE : EXIT_SUCCESS) {
-                    Debug::Log("FAILED TO STOP SENSOR");
-                }
-                else {
-                    Debug::Log("STOPPED SENSOR");
-                }
-                Debug::Log("STOPPED SENSOR");
-//                pipe.stop();
+                std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->stop();
                 if (ExitThreadLoop) {
                     break;
                 }
@@ -624,8 +497,8 @@ public:
                 mapDataLoaded = false;
                 Debug::Log(ss.str(), Color::Red);
             }
+
         }
-        xslam_clear_callbacks();
         Debug::Log("Closed Tracker!", Color::Green);
     }
     void ResetInitialPose() {

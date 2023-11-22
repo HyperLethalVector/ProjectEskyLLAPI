@@ -228,7 +228,7 @@ extern "C" {
     }
     DLL_EXPORT void SetKFilterEnabled(int iD, bool value) {
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->SetKFilterEnabled(value);
+        to[iD]->SetKFilterEnabled(value);  
     }
     DLL_EXPORT void RegisterMatrixDeltaConvCallback(int iD, FuncDeltaMatrixConvertCallback callback) {
         if (to.find(iD) == to.end()) { return; }
@@ -256,27 +256,27 @@ extern "C" {
     DLL_EXPORT void RegisterObjectPoseCallback(int iD, LocalizationPoseCallback cb) { 
         if (to.find(iD) == to.end()) { return; }
         to[iD]->callbackObjectPoseReceived = cb; 
-    }  
-    DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) {
+    }   
+    DLL_EXPORT void RegisterBinaryMapCallback(int iD, MapDataCallback cb) { 
         Debug::Log("Registering binary map callback");
         if (to.find(iD) == to.end()) { return; }
-        to[iD]->callbackBinaryMap = cb; 
-        Debug::Log("Done registering binary map");
+        to[iD]->callbackBinaryMap = cb;  
+        Debug::Log("Done registering binary map"); 
     }          
     DLL_EXPORT void SetSerialComPort(int iD, int port) { 
         if (to.find(iD) == to.end()) { return; }
         to[iD]->usesIntegrator = true;   
         to[iD]->SetComPortString(port); 
     }        
-    DLL_EXPORT void SetRenderTexturePointer(int iD, void* textureHandle) {
+    DLL_EXPORT void SetRenderTexturePointer(int iD, void* textureHandle) { 
         if (to.find(iD) == to.end()) { return; }
         to[iD]->SetTexturePointer(textureHandle);  
     }   
 
     DLL_EXPORT void SubscribeCallbackImageWithID(int iD, int instanceID, FuncReceiveCameraImageCallbackWithID callback) {
         to[iD]->SubscribeReceiver(callback,instanceID); 
-    }           
-    DLL_EXPORT void SetLeftRightEyeTransform(int iD, float* leftEyeTransform, float* rightEyeTransform) { 
+    }            
+    DLL_EXPORT void SetLeftRightEyeTransform(int iD, float* leftEyeTransform, float* rightEyeTransform) {  
         if (to.find(iD) == to.end()) { return; }
         to[iD]->SetLeftRightEyeTransforms(leftEyeTransform, rightEyeTransform);
     }
