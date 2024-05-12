@@ -24,7 +24,6 @@
 #include <stack>
 #include <float.h>
 #include <xv-sdk.h>
-#include <xv-sdk-ex.h>
 #include <cmath>
 
 #ifdef __linux__ //OGL
@@ -345,12 +344,12 @@ public:
             PoseInitial = glm::toMat4(glm::qua<float>(latestPoseExternal[6], latestPoseExternal[3], -latestPoseExternal[4], -latestPoseExternal[5]));
             PoseInitial[3][0] = latestPoseExternal[0];
             PoseInitial[3][1] = -latestPoseExternal[1];
-            PoseInitial[3][2] = latestPoseExternal[2];
+            PoseInitial[3][2] = -latestPoseExternal[2];
         }
         PoseFinal = glm::toMat4(glm::qua<float>(latestPoseExternal[6], latestPoseExternal[3], -latestPoseExternal[4], -latestPoseExternal[5]));
         PoseFinal[3][0] = latestPoseExternal[0];
         PoseFinal[3][1] = -latestPoseExternal[1];
-        PoseFinal[3][2] = latestPoseExternal[2];
+        PoseFinal[3][2] = -latestPoseExternal[2];
         try {
             DeltaLeftEye = glm::inverse(leftEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * leftEyeTransform;
             DeltaRightEye = glm::inverse(rightEyeTransform) * glm::inverse(PoseInitial) * PoseFinal * rightEyeTransform;
@@ -435,14 +434,18 @@ public:
                 auto device = devices.begin()->second;
                 shouldRestart = false;
                 Debug::Log("Entering Managment Loop", Color::Green);
-                while (!shouldRestart && !ExitThreadLoop) {
-                        
-                    if (std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()) {
-                        std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->registerCallback([this](const xv::Pose& pose) {
-                            show_pose_quaternion(pose);
-                            });
-                        std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->start(xv::Slam::Mode::Edge);
-                    }
+                device->slam()->registerCallback([this](const xv::Pose& pose) {
+                    show_pose_quaternion(pose);
+                    });
+                if (device->slam()->start(xv::Slam::Mode::Mixed)) {
+                    Debug::Log("Successfully Initialized XVisioSensor", Color::Green);
+
+                }
+                else {
+                    Debug::Log("Issue Initializing XVisioSensor", Color::Green);
+                }
+                while (!shouldRestart && !ExitThreadLoop) {                        
+                    
                     if (grabOriginPose) {
                         grabOriginPose = false;
                     }
@@ -485,7 +488,7 @@ public:
                 if (usesIntegrator) {
                 }
                 Debug::Log("Exiting Managment Loop, first stopping sensor",Color::Green);
-                std::dynamic_pointer_cast<xv::DeviceEx>(device)->slam2()->stop();
+                device->slam()->stop();
                 if (ExitThreadLoop) {
                     break;
                 }
