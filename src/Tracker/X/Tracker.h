@@ -434,12 +434,12 @@ public:
                 auto device = devices.begin()->second;
                 shouldRestart = false;
                 Debug::Log("Entering Managment Loop", Color::Green);
-                device->slam()->registerCallback([this](const xv::Pose& pose) {
+                int poseCallbackId = device->slam()->registerCallback([this](const xv::Pose& pose) {
                     show_pose_quaternion(pose);
                     });
-                if (device->slam()->start(xv::Slam::Mode::Mixed)) {
+                if (device->slam()->start(xv::Slam::Mode::Edge)) {
                     Debug::Log("Successfully Initialized XVisioSensor", Color::Green);
-
+                    device->slam()->reset();
                 }
                 else {
                     Debug::Log("Issue Initializing XVisioSensor", Color::Green);
@@ -488,6 +488,7 @@ public:
                 if (usesIntegrator) {
                 }
                 Debug::Log("Exiting Managment Loop, first stopping sensor",Color::Green);
+                device->slam()->unregisterCallback(poseCallbackId);
                 device->slam()->stop();
                 if (ExitThreadLoop) {
                     break;

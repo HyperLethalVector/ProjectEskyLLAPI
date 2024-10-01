@@ -46,9 +46,7 @@ extern "C" {
     }
     DLL_EXPORT void StopTrackers(int Id) { 
         if (to.find(Id) == to.end()) {return;}
-        to[Id]->ExitThreadLoop = true;
-        to[Id]->StopTracking();   
-         
+        to[Id]->StopTracking();
     }        
     DLL_EXPORT void UseAsyncHeadPosePredictor(int iD, bool val) {
         if (to.find(iD) == to.end()) { return; }
