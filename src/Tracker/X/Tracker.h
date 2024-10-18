@@ -112,6 +112,7 @@ public:
     ID3D11Texture2D* d3dtex;
 #endif
     int TrackerID;
+    int slamMode;
     bool resetInitialPose = true;
     bool LockImage = false;
     bool LockPose = true;
@@ -437,7 +438,7 @@ public:
                 int poseCallbackId = device->slam()->registerCallback([this](const xv::Pose& pose) {
                     show_pose_quaternion(pose);
                     });
-                if (device->slam()->start(xv::Slam::Mode::Edge)) {
+                if (device->slam()->start(static_cast<xv::Slam::Mode>(slamMode))) {
                     Debug::Log("Successfully Initialized XVisioSensor", Color::Green);
                     device->slam()->reset();
                 }

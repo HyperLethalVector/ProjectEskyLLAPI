@@ -80,11 +80,11 @@ extern "C" {
         return to[Id]->latestPose;
     } 
 
-    DLL_EXPORT void InitializeTrackerObject(int Id) {
+    DLL_EXPORT void InitializeTrackerObject(int Id, int slamMode) {
         Debug::Log("Initializing Tracker Object");
         to[Id] = new TrackerObject();
-        Debug::Log("Done Initializing Tracker Object"); 
-        to[Id]->TrackerID = Id; 
+        to[Id]->TrackerID = Id;
+        to[Id]->slamMode = slamMode;
         Debug::Log("Done Initializing Tracker Object");
     }
     DLL_EXPORT void ObtainMap(int Id) { 
@@ -287,11 +287,8 @@ static void UNITY_INTERFACE_API OnRenderEvent(int iD)
 extern "C" UnityRenderingEvent UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRenderEventFunc(int iD)
 { 
     return OnRenderEvent;
-}     
-int main(int argc, char** argv) {
-    InitializeTrackerObject(0); 
 }
- 
+
 //Create a callback delegate    
  
           
